@@ -132,20 +132,25 @@ class DivinerTools(object):
 		self.job_monitor.start()
 
 
+	def __waitForJobQueueToEmpty(self):
+		"""! Waits for the job queue to empty
+		"""
+		while (self.job_queue.qsize() > 0):
+			# Trying to enforce printing on the same line...
+			sys.stdout.write("\033[K") 
+			sys.stdout.write("\rRemaining jobs: {}  ".format(self.job_queue.qsize()))
+			sys.stdout.flush()
+
+			time.sleep(1)
+
+
 	def __stopJobMonitor(self):
 		"""! Waits until all SQL jobs are complete and then issues
 			a stop command that will stop the job monitor thread
 		"""
 
 		# Wait until all jobs are completed
-		while (self.job_queue.qsize() > 0):
-
-			# Trying to enforce printing on the same line...
-			sys.stdout.write("\033[K") 
-			sys.stdout.write("\rThere are {} jobs left".format(self.job_queue.qsize()))
-			sys.stdout.flush()
-
-			time.sleep(1)
+		self.__waitForJobQueueToEmpty()
 
 		# One last flush
 		sys.stdout.flush()
@@ -519,6 +524,7 @@ class DivinerTools(object):
 		# it to preserve storage space
 		os.remove(filename)
 
+
 	def batch(self, input_list, batch_size):
 		"""! Splits a list into a list of lists of a specified size
 
@@ -538,16 +544,15 @@ class DivinerTools(object):
 		if (self.__useTimer):
 			start_t = self.__startTimer()
 
+		# Start the SQL job monitor 
+		self.__startJobMonitor()
+		
 		# Split data into batches
 		batched_data = self.batch(data, self.__batchSize)
-
 
 		for n, batch in tqdm(enumerate(batched_data, start=0), total=len(batched_data)):
 
 			print("=========== Batch: " + repr(n) + " ===========")
-
-			# Start the SQL job monitor 
-			self.__startJobMonitor()
 
 			# Start thread pool, using 10 workers max to avoid overrunning
 			# memory or the job queue
@@ -558,8 +563,11 @@ class DivinerTools(object):
 				# Wait for all futures to complete 
 				results = [future.result() for future in concurrent.futures.as_completed(futures)]
 
-			# Stop the job monitor
-			self.__stopJobMonitor()
+				# Wait for job queue to empty before starting next batch
+				self.__waitForJobQueueToEmpty()
+
+		# Stop the job monitor (the job monitor will wait for the queue to empty first)
+		self.__stopJobMonitor()
 
 		# End timer if the timer option is selected
 		if (self.__useTimer):
