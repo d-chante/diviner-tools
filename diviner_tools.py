@@ -448,9 +448,9 @@ class DivinerTools(object):
 		# Since there are files that contain no target 
 		# data, we want to keep track of the ones that do
 		# so that in the future we don't have to download
-		# every RDR file
+		# every RDR file if we need to redo preprocessing
 		if (count > 0):
-			data = file + " " + repr(count)
+			data = url + " " + repr(count)
 			self.append_to_file(useful_tab_file, data)
 
 		# We no longer need the .TAB data and will delete
