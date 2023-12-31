@@ -541,12 +541,13 @@ class DivinerTools(object):
 		# Split data into batches
 		batched_data = self.batch(data, self.__batchSize)
 
-		# Start the SQL job monitor 
-		self.__startJobMonitor()
 
 		for n, batch in tqdm(enumerate(batched_data, start=0), total=len(batched_data)):
 
 			print("=========== Batch: " + repr(n) + " ===========")
+
+			# Start the SQL job monitor 
+			self.__startJobMonitor()
 
 			# Start thread pool, using 10 workers max to avoid overrunning
 			# memory or the job queue
@@ -557,8 +558,8 @@ class DivinerTools(object):
 				# Wait for all futures to complete 
 				results = [future.result() for future in concurrent.futures.as_completed(futures)]
 
-		# Stop the job monitor
-		self.__stopJobMonitor()
+			# Stop the job monitor
+			self.__stopJobMonitor()
 
 		# End timer if the timer option is selected
 		if (self.__useTimer):
