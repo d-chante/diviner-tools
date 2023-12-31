@@ -1,10 +1,8 @@
-#!/usr/bin/env python3
-"""! @brief Helper object with functions for pre-processing Diviner data"""
-
 ##
 # @file diviner_tools.py
 # @author Chantelle G. Dubois (chantelle.dubois@mail.concordia.ca)
 #	
+
 from bs4 import BeautifulSoup
 import concurrent.futures
 from enum import Enum
@@ -44,15 +42,20 @@ JOB_TEMPLATE = '''
 
 class DivinerTools(object):
 
-	def __init__(self, data_dir, db_filepath):
+	def __init__(self, db_filepath):
 
-		self.__createDir(data_dir)
-		self.__createDatabase(db_filepath)
+		self.__dbFilepath = db_filepath
+
+		self.__createDatabase()
 
 	
-	def __writeChunk(self, jobs_chunk, db_filepath):
+	def __writeChunk(self, jobs_chunk):
+		"""! Writes a chunk of queued jobs to SQL database
+
+		@param jobs_chunk A list containing a chunk of jobs
+		"""
 		
-		db_connection = sqlite3.connect(db_filepath)
+		db_connection = sqlite3.connect(self.__dbFilepath)
 		db_cursor = db_connection.cursor()
 
 		for job in jobs_chunk:
@@ -62,7 +65,10 @@ class DivinerTools(object):
 		db_connection.close()
 
 
-	def __dbJobProcessor(self, db_filepath):
+	def __jobMonitor(self):
+		"""! Monitors a job queue for data that needs to be written
+			to a database.
+		"""
 
 		# To speed up writing, we can process
 		# jobs in 'chunks'
@@ -92,31 +98,29 @@ class DivinerTools(object):
 						jobs_chunk.append(self.job_queue.get())
 
 					# Send chunk to be processed
-					self.__writeChunk(jobs_chunk, db_filepath)
+					self.__writeChunk(jobs_chunk)
 
 
-	def startDatabaseJobMonitor(self, db_filepath):
-		# Database write jobs queue
+	def __startJobMonitor(self):
+		"""! Starts a thread that runs an SQL job monitor
+		"""
 		self.job_queue = queue.Queue()
 
-		self.job_monitor = threading.Thread(target=self.__dbJobProcessor, args=(db_filepath,))
+		self.job_monitor = threading.Thread(target=self.__jobMonitor)
 		self.job_monitor.start()
 
 
-	def stopDatabaseJobMonitor(self):
+	def __stopJobMonitor(self):
+		"""! Waits until all SQL jobs are complete and then issues
+			a stop command that will stop the job monitor thread
+		"""
 
 		# Wait until all jobs are completed
 		while (self.job_queue.qsize() > 0):
 
-			# Trying to enforce printing on the same line...
-			sys.stdout.write("\033[K") 
-			sys.stdout.write("\rThere are {} jobs left".format(self.job_queue.qsize()))
-			sys.stdout.flush()
+			#print("There are {} jobs left".format(self.job_queue.qsize()))
 
-			time.sleep(1)
-
-		# Flush the line one last time
-		sys.stdout.flush()
+			time.sleep(0.1)
 
 		# Send None job to stop job monitor
 		self.job_queue.put(None)
@@ -131,12 +135,10 @@ class DivinerTools(object):
 			os.makedirs(data_dir)
 
 
-	def __createDatabase(self, db_filepath):
+	def __createDatabase(self):
 		"""! Create database if it doesn't exist
-
-		@param db_filepath The filepath to the database object
 		"""
-		db_connection = sqlite3.connect(db_filepath)
+		db_connection = sqlite3.connect(self.__dbFilepath)
 
 		# Creating a cursor object allows us to interact
 		# with the database object through SQL commands
@@ -185,7 +187,7 @@ class DivinerTools(object):
 		# Execute the SQL to define the table schema
 		db_cursor.execute(rdr_lvl1_ch7_schema)
 
-		# Turn of PRAGMA synch to speed up writing
+		# Turn off PRAGMA synch to speed up writing
 		# Note: this has a higher risk of data being corrupted
 		# but hopefully since this database should only need
 		# to be populated once, this is an okay risk.
@@ -324,10 +326,9 @@ class DivinerTools(object):
 			return False
 
 
-	def insert_into_database(self, dest_db, data):
+	def insert_into_database(self, data):
 		"""! Adds a Diviner RDR LVL1 data line into a target database
 
-		@param dest_db The pathway to the destination database
 		@param data The text line containing the data entry
 		@param 0 or 1 depending if the data was added or not
 		"""
@@ -390,60 +391,58 @@ class DivinerTools(object):
 		return lines
 
 
-	def append_to_file(self, filepath, data):
+	def append_to_file(self, txt_filepath, data):
 		"""! Appends data to target text file
 
-		@param filepath The text file path
+		@param txt_filepath The text file path
 		@param data The data to be appended
 		"""
 		# Appending a string
 		if isinstance(data, str):
-			with open(filepath, 'a') as file:
+			with open(txt_filepath, 'a') as file:
 				file.write(data + '\n')
 
 		# Appending a list of strings
 		elif isinstance(data, list):
-			with open(filepath, 'a') as file:
+			with open(txt_filepath, 'a') as file:
 				file.writelines('\n'.join(data))
 
 
-	def txt_to_list(self, filepath):
+	def txt_to_list(self, txt_filepath):
 		"""! Generates a list from a textfile
 
-		@param filepath The path to the target text file
+		@param txt_filepath The path to the target text file
 		"""
-		with open(filepath, 'r') as file:
+		with open(txt_filepath, 'r') as file:
 			lines = [line.strip() for line in file.readlines()]
 
 		return lines
 
-	def processor(self, url, tab_dir, db_filepath, useful_tab_file):
+	def processor(self, url, tmp_dir, useful_tab_file):
 		"""! Preprocesses RDR data tables all the way from download
 			to writing to the database
 
 		@param url The url of the .zip file containing RDR data
-		@param tab_dir The directory to save the files
-		@param db_filepath The filepath to the database
+		@param tmp_dir The directory to save the files
 		@param tab_txt_filepath The filepath of a text file to 
 			keep track of useful filenames
 		"""
-		self.download_unpack_delete(tab_dir, url)
+		self.download_unpack_delete(tmp_dir, url)
 
 		# Synth filename from url
 		file = re.search(r'(\d{12}_rdr)', url)[0].upper()
-		filename = os.path.join(tab_dir,  file + ".TAB")
+		filename = os.path.join(tmp_dir,  file + ".TAB")
 
 		# Read lines from .TAB file
 		lines = self.tab_to_lines(filename)
 
 		# Process each line and add to database it qualifies
 		# Note: if we use multithreading, sqlite3 doesn't
-		# support concurrent writes, but it's supposed to
-		# somehow queue write requests
+		# support concurrent writes, so a job monitor is needed
 		count = 0
     
 		for line in lines:
-			count += self.insert_into_database(db_filepath, line)
+			count += self.insert_into_database(self.__dbFilepath, line)
 
 		# Since there are files that contain no target 
 		# data, we want to keep track of the ones that do
@@ -457,3 +456,25 @@ class DivinerTools(object):
 		# it to preserve storage space
 		os.remove(filename)
 
+	def preprocess(self, batch, tmp_dir, useful_tab_file):
+		"""! Initiates the pre-processing loop
+
+		@param batch A list of URLs to zip files that will be processed
+		"""
+
+		# Start the SQL job monitor 
+		self.__startJobMonitor()
+
+		# Start thread pool
+		with concurrent.futures.ThreadPoolExecutor() as executor:
+
+			futures = [executor.submit(self.processor, url, tmp_dir, useful_tab_file) for url in batch]
+
+			# Wait for all futures to complete 
+			results = [future.result() for future in concurrent.futures.as_completed(futures)]
+
+		# Stop the job monitor
+		self.__stopJobMonitor()
+
+		print("Preprocessing batch complete")
+		

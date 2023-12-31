@@ -1,0 +1,14 @@
+# Filepath to the target database
+database_filepath: "/esthar/diviner_data/database/diviner_data.db"
+
+# Pathway to the tmp directory
+tmp_directory: "/esthar/diviner_data/tmp"
+
+# Filepath to the zip files list
+zip_filepath: "/esthar/diviner_data/txt_files/zip_urls.txt"
+
+# Filepath to the useful tab files list
+useful_tabs_filepath: "/esthar/diviner_data/txt_files/zip_urls.txt"
+
+# Bath size of number of .TAB files processed per iteration
+batch_size: 10
