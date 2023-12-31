@@ -118,10 +118,16 @@ class DivinerTools(object):
 		# Wait until all jobs are completed
 		while (self.job_queue.qsize() > 0):
 
-			#print("There are {} jobs left".format(self.job_queue.qsize()))
+			# Trying to enforce printing on the same line...
+			sys.stdout.write("\033[K") 
+			sys.stdout.write("\rThere are {} jobs left".format(self.job_queue.qsize()))
+			sys.stdout.flush()
 
 			time.sleep(0.1)
 
+		# One last flush
+		sys.stdout.flush()
+		
 		# Send None job to stop job monitor
 		self.job_queue.put(None)
 

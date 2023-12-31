@@ -11,4 +11,4 @@ zip_filepath: "/esthar/diviner_data/txt_files/zip_urls.txt"
 useful_tabs_filepath: "/esthar/diviner_data/txt_files/zip_urls.txt"
 
 # Bath size of number of .TAB files processed per iteration
-batch_size: 10
+batch_size: 100
