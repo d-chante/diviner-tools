@@ -123,7 +123,7 @@ class DivinerTools(object):
 			sys.stdout.write("\rThere are {} jobs left".format(self.job_queue.qsize()))
 			sys.stdout.flush()
 
-			time.sleep(0.1)
+			time.sleep(1)
 
 		# One last flush
 		sys.stdout.flush()
@@ -448,7 +448,7 @@ class DivinerTools(object):
 		count = 0
     
 		for line in lines:
-			count += self.insert_into_database(self.__dbFilepath, line)
+			count += self.insert_into_database(line)
 
 		# Since there are files that contain no target 
 		# data, we want to keep track of the ones that do
@@ -462,6 +462,7 @@ class DivinerTools(object):
 		# it to preserve storage space
 		os.remove(filename)
 
+
 	def preprocess(self, batch, tmp_dir, useful_tab_file):
 		"""! Initiates the pre-processing loop
 
@@ -472,7 +473,7 @@ class DivinerTools(object):
 		self.__startJobMonitor()
 
 		# Start thread pool
-		with concurrent.futures.ThreadPoolExecutor() as executor:
+		with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
 
 			futures = [executor.submit(self.processor, url, tmp_dir, useful_tab_file) for url in batch]
 
