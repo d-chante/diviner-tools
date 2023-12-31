@@ -550,12 +550,12 @@ class DivinerTools(object):
 
 			# Start thread pool, using 10 workers max to avoid overrunning
 			# memory or the job queue
-			#with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+			with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
 
-			#	futures = [executor.submit(self.__processor, url) for url in batch]
+				futures = [executor.submit(self.__processor, url) for url in batch]
 
 				# Wait for all futures to complete 
-			#	results = [future.result() for future in concurrent.futures.as_completed(futures)]
+				results = [future.result() for future in concurrent.futures.as_completed(futures)]
 
 		# Stop the job monitor
 		self.__stopJobMonitor()
