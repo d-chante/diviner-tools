@@ -12,6 +12,10 @@ import os
 import requests
 import re
 import sqlite3
+import sys
+import threading
+import time
+import queue
 from urllib.parse import urljoin
 from zipfile import ZipFile
 
@@ -27,6 +31,16 @@ FIELD = Enum("FIELD",
 	"QCA", "QGE", "QMI"], 
 	start=0)
 
+# The SQL job template
+JOB_TEMPLATE = '''
+	INSERT INTO RDR_LVL1_CH7 (
+		date, utc, jdate, orbit, sundist, sunlat, sunlon, sclk, sclat, sclon,
+		scrad, scalt, el_cmd, az_cmd, af, vert_lat, vert_lon, c, det, vlookx,
+		vlooky, vlookz, radiance, tb, clat, clon, cemis, csunzen, csunazi,
+		cloctime, qca, qge, qmi
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	'''
+
 
 class DivinerTools(object):
 
@@ -35,6 +49,79 @@ class DivinerTools(object):
 		self.__createDir(data_dir)
 		self.__createDatabase(db_filepath)
 
+	
+	def __writeChunk(self, jobs_chunk, db_filepath):
+		
+		db_connection = sqlite3.connect(db_filepath)
+		db_cursor = db_connection.cursor()
+
+		for job in jobs_chunk:
+			db_cursor.execute(JOB_TEMPLATE, job)
+
+		db_connection.commit()
+		db_connection.close()
+
+
+	def __dbJobProcessor(self, db_filepath):
+
+		# To speed up writing, we can process
+		# jobs in 'chunks'
+		jobs_chunk = []
+
+		MAX_CHUNK_SIZE = 1000
+
+		while True:
+			curr_qsize = self.job_queue.qsize()
+
+			if (curr_qsize > 0):
+
+				job = self.job_queue.get()
+
+				if job is None:
+					print("Job monitor stopped")
+					break
+
+				else:
+					jobs_chunk.append(job)
+
+					# Dynamically determine the chunk size
+					curr_chunk_size = min(curr_qsize, MAX_CHUNK_SIZE)
+
+					# Fill chunk list 
+					for j in range(curr_chunk_size - 1):
+						jobs_chunk.append(self.job_queue.get())
+
+					# Send chunk to be processed
+					self.__writeChunk(jobs_chunk, db_filepath)
+
+
+	def startDatabaseJobMonitor(self, db_filepath):
+		# Database write jobs queue
+		self.job_queue = queue.Queue()
+
+		self.job_monitor = threading.Thread(target=self.__dbJobProcessor, args=(db_filepath,))
+		self.job_monitor.start()
+
+
+	def stopDatabaseJobMonitor(self):
+
+		# Wait until all jobs are completed
+		while (self.job_queue.qsize() > 0):
+
+			# Trying to enforce printing on the same line...
+			sys.stdout.write("\033[K") 
+			sys.stdout.write("\rThere are {} jobs left".format(self.job_queue.qsize()))
+			sys.stdout.flush()
+
+			time.sleep(1)
+
+		# Flush the line one last time
+		sys.stdout.flush()
+
+		# Send None job to stop job monitor
+		self.job_queue.put(None)
+
+
 	def __createDir(self, data_dir):
 		"""! Creates project directory if it doesn't already exist
 
@@ -42,6 +129,7 @@ class DivinerTools(object):
 		"""
 		if not os.path.exists(data_dir):
 			os.makedirs(data_dir)
+
 
 	def __createDatabase(self, db_filepath):
 		"""! Create database if it doesn't exist
@@ -55,8 +143,8 @@ class DivinerTools(object):
 		db_cursor = db_connection.cursor()
 
 		# Creating the table schema based on the RDR SIS
-		rdr_lvl1_schema = '''
-			CREATE TABLE IF NOT EXISTS rdr_lvl1_data (
+		rdr_lvl1_ch7_schema = '''
+			CREATE TABLE IF NOT EXISTS RDR_LVL1_CH7 (
 			id INTEGER PRIMARY KEY,
 			date TEXT,
 			utc TEXT,
@@ -95,7 +183,13 @@ class DivinerTools(object):
 		'''
 
 		# Execute the SQL to define the table schema
-		db_cursor.execute(rdr_lvl1_schema)
+		db_cursor.execute(rdr_lvl1_ch7_schema)
+
+		# Turn of PRAGMA synch to speed up writing
+		# Note: this has a higher risk of data being corrupted
+		# but hopefully since this database should only need
+		# to be populated once, this is an okay risk.
+		db_cursor.execute("PRAGMA synchronous = OFF;")
 
 		# Then commit and close the connection
 		db_connection.commit()
@@ -249,39 +343,27 @@ class DivinerTools(object):
 	
 		if(dataok):
 			try:
-				# Connect to db
-				db_connection = sqlite3.connect(dest_db)
-				db_cursor = db_connection.cursor()
-
-				# Execute SQL to insert new data to table
-				db_cursor.execute('''
-					INSERT INTO rdr_lvl1_data  (
-						date, utc, jdate, orbit, sundist, sunlat, sunlon, sclk, sclat, sclon,
-						scrad, scalt, el_cmd, az_cmd, af, vert_lat, vert_lon, c, det, vlookx,
-						vlooky, vlookz, radiance, tb, clat, clon, cemis, csunzen, csunazi,
-						cloctime, qca, qge, qmi
-					) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-				''', 
-					(values[FIELD.DATE.value], values[FIELD.UTC.value], float(values[FIELD.JDATE.value]), 
+				# The specific values to be inserted
+				job_values = [
+					values[FIELD.DATE.value], values[FIELD.UTC.value], float(values[FIELD.JDATE.value]),
 					float(values[FIELD.ORBIT.value]), float(values[FIELD.SUNDIST.value]), float(values[FIELD.SUNLAT.value]),
-					float(values[FIELD.SUNLON.value]), float(values[FIELD.SCLK.value]), values[FIELD.SCLAT.value], 
-					float(values[FIELD.SCLON.value]), float(values[FIELD.SCRAD.value]), float(values[FIELD.SCALT.value]), 
-					float(values[FIELD.EL_CMD.value]), float(values[FIELD.AZ_CMD.value]), float(values[FIELD.AF.value]), 
-					float(values[FIELD.ORIENTLAT.value]), float(values[FIELD.ORIENTATION.value]), float(values[FIELD.C.value]), 
-					int(values[FIELD.DET.value]), float(values[FIELD.VLOOKX.value]), float(values[FIELD.VLOOKY.value]), 
-					float(values[FIELD.VLOOKZ.value]), float(values[FIELD.RADIANCE.value]), float(values[FIELD.TB.value]), 
+					float(values[FIELD.SUNLON.value]), float(values[FIELD.SCLK.value]), values[FIELD.SCLAT.value],
+					float(values[FIELD.SCLON.value]), float(values[FIELD.SCRAD.value]), float(values[FIELD.SCALT.value]),
+					float(values[FIELD.EL_CMD.value]), float(values[FIELD.AZ_CMD.value]), float(values[FIELD.AF.value]),
+					float(values[FIELD.ORIENTLAT.value]), float(values[FIELD.ORIENTATION.value]), float(values[FIELD.C.value]),
+					int(values[FIELD.DET.value]), float(values[FIELD.VLOOKX.value]), float(values[FIELD.VLOOKY.value]),
+					float(values[FIELD.VLOOKZ.value]), float(values[FIELD.RADIANCE.value]), float(values[FIELD.TB.value]),
 					float(values[FIELD.CLAT.value]), float(values[FIELD.CLON.value]), float(values[FIELD.CEMIS.value]),
-					float(values[FIELD.CSUNZEN.value]), float(values[FIELD.CSUNAZI.value]), float(values[FIELD.CLOCTIME.value]), 
-					float(values[FIELD.QCA.value]), int(values[FIELD.QGE.value]), int(values[FIELD.QMI.value])))
+					float(values[FIELD.CSUNZEN.value]), float(values[FIELD.CSUNAZI.value]), float(values[FIELD.CLOCTIME.value]),
+					float(values[FIELD.QCA.value]), int(values[FIELD.QGE.value]), int(values[FIELD.QMI.value])]
 
-				# Commit and close
-				db_connection.commit()
-				db_connection.close()
-
+				# Adding job to job queue
+				self.job_queue.put(job_values)
+				
 				return 1
 
-			except sqlite3.Error as e:
-				print("Error inserting data: ", e)
+			except Exception as e:
+				print("Error adding SQL job to queue: ", e)
 				return 0
 		else:
 			return 0
@@ -368,9 +450,10 @@ class DivinerTools(object):
 		# so that in the future we don't have to download
 		# every RDR file
 		if (count > 0):
-			data = file + " " + count
+			data = file + " " + repr(count)
 			self.append_to_file(useful_tab_file, data)
 
 		# We no longer need the .TAB data and will delete
 		# it to preserve storage space
 		os.remove(filename)
+
