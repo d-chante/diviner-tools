@@ -5,16 +5,20 @@
 
 from bs4 import BeautifulSoup
 import concurrent.futures
+from datetime import datetime, timedelta
 from enum import Enum
 import os
+import pytz
 import requests
 import re
 import sqlite3
 import sys
 import threading
+from tqdm import tqdm
 import time
 import queue
 from urllib.parse import urljoin
+import yaml
 from zipfile import ZipFile
 
 
@@ -42,16 +46,34 @@ JOB_TEMPLATE = '''
 
 class DivinerTools(object):
 
-	def __init__(self, db_filepath):
+	def __init__(self, cfg_filepath):
 
-		self.__dbFilepath = db_filepath
+		# Extract configs
+		with open(cfg_filepath, 'r') as file:
+			self.__cfg = yaml.safe_load(file)
 
+		# Filepath to database
+		self.__dbFilepath = self.__cfg['database_filepath']
+
+		# Pathway to tmp directory
+		self.__tmpDir = self.__cfg['tmp_directory']
+
+		# Filepath to the useful tab files list
+		self.__usefulTabsFilepath = self.__cfg['useful_tabs_filepath']
+
+		# Batch size for number of .TAB files processed per iteration
+		self.__batchSize = self.__cfg['batch_size']
+
+		# Flag to indicate whether or not to use timer
+		self.__useTimer = self.__cfg['use_timer'] 
+		
+		# Create database if it doesn't exist yet
 		self.__createDatabase()
 
 	
 	def __writeChunk(self, jobs_chunk):
 		"""! Writes a chunk of queued jobs to SQL database
-
+		
 		@param jobs_chunk A list containing a chunk of jobs
 		"""
 		
@@ -84,7 +106,7 @@ class DivinerTools(object):
 				job = self.job_queue.get()
 
 				if job is None:
-					print("Job monitor stopped")
+					print("\nJob monitor stopped")
 					break
 
 				else:
@@ -424,20 +446,55 @@ class DivinerTools(object):
 
 		return lines
 
-	def processor(self, url, tmp_dir, useful_tab_file):
+
+	def __startTimer(self):
+		"""! Logs a start time
+		"""
+
+		# Log start time
+		start_t = datetime.now(pytz.timezone('America/Montreal'))
+
+		print("\nStart time: " + repr(start_t.strftime('%Y-%m-%d %H:%M')))
+
+		return start_t
+
+	def __timeElapsed(self, start_time):
+		"""! Determines elapsed time given a start time and prints
+			in human-readable format
+
+		@param start_time The start time
+		"""
+
+		end_t = datetime.now(pytz.timezone('America/Montreal'))
+		print("\nEnd time: " + repr(end_t.strftime('%Y-%m-%d %H:%M')))
+
+		# Total elapsed time
+		delta_t = end_t - start_time
+
+		# Calculate total seconds in the timedelta
+		total_seconds = int(delta_t.total_seconds())
+
+		# Extract hours, minutes, and seconds
+		hours, remainder = divmod(total_seconds, 3600)
+		minutes, seconds = divmod(remainder, 60)
+
+		# Format the output as HH:mm:ss
+		formatted_time = f"{hours:02}:{minutes:02}:{seconds:02}"
+
+		print("\nElapsed time: " + formatted_time)
+	
+
+	def __processor(self, url):
 		"""! Preprocesses RDR data tables all the way from download
 			to writing to the database
 
 		@param url The url of the .zip file containing RDR data
-		@param tmp_dir The directory to save the files
-		@param tab_txt_filepath The filepath of a text file to 
-			keep track of useful filenames
 		"""
-		self.download_unpack_delete(tmp_dir, url)
+		self.download_unpack_delete(self.__tmpDir, url)
 
 		# Synth filename from url
 		file = re.search(r'(\d{12}_rdr)', url)[0].upper()
-		filename = os.path.join(tmp_dir,  file + ".TAB")
+		filename = os.path.join(self.__tmpDir,  file + ".TAB")
 
 		# Read lines from .TAB file
 		lines = self.tab_to_lines(filename)
@@ -456,32 +513,54 @@ class DivinerTools(object):
 		# every RDR file if we need to redo preprocessing
 		if (count > 0):
 			data = url + " " + repr(count)
-			self.append_to_file(useful_tab_file, data)
+			self.append_to_file(self.__usefulTabsFilepath, data)
 
 		# We no longer need the .TAB data and will delete
 		# it to preserve storage space
 		os.remove(filename)
 
+	def batch(self, input_list, batch_size):
+		"""! Splits a list into a list of lists of a specified size
 
-	def preprocess(self, batch, tmp_dir, useful_tab_file):
+		@param input_list A list
+		@param batch_size The desired size of sub-lists
+		"""
+		return [input_list[i:i + batch_size] for i in range(0, len(input_list), batch_size)]
+
+
+	def preprocess(self, data):
 		"""! Initiates the pre-processing loop
 
-		@param batch A list of URLs to zip files that will be processed
+		@param data A list of zip urls
 		"""
+
+		# Start timer if the timer option is selected
+		if (self.__useTimer):
+			start_t = self.__startTimer()
+
+		# Split data into batches
+		batched_data = self.batch(data, self.__batchSize)
 
 		# Start the SQL job monitor 
 		self.__startJobMonitor()
 
-		# Start thread pool
-		with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+		for n, batch in tqdm(enumerate(batched_data, start=0), total=len(batched_data)):
 
-			futures = [executor.submit(self.processor, url, tmp_dir, useful_tab_file) for url in batch]
+			print("=========== Batch: " + repr(n) + " ===========")
 
-			# Wait for all futures to complete 
-			results = [future.result() for future in concurrent.futures.as_completed(futures)]
+			# Start thread pool, using 10 workers max to avoid overrunning
+			# memory or the job queue
+			#with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+
+			#	futures = [executor.submit(self.__processor, url) for url in batch]
+
+				# Wait for all futures to complete 
+			#	results = [future.result() for future in concurrent.futures.as_completed(futures)]
 
 		# Stop the job monitor
 		self.__stopJobMonitor()
 
-		print("Preprocessing batch complete")
+		# End timer if the timer option is selected
+		if (self.__useTimer):
+			self.__timeElapsed(start_t)
 		

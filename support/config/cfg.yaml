@@ -4,11 +4,11 @@ database_filepath: "/esthar/diviner_data/database/diviner_data.db"
 # Pathway to the tmp directory
 tmp_directory: "/esthar/diviner_data/tmp"
 
-# Filepath to the zip files list
-zip_filepath: "/esthar/diviner_data/txt_files/zip_urls.txt"
-
 # Filepath to the useful tab files list
 useful_tabs_filepath: "/esthar/diviner_data/txt_files/useful_tabs.txt"
 
 # Batch size of number of .TAB files processed per iteration
 batch_size: 10
+
+# Flag to indicate whether or not to use timer
+use_timer: true 
