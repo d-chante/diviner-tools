@@ -1,11 +1,14 @@
 # Filepath to the target database
-database_filepath: "/esthar/diviner_data/database/diviner_data.db"
+database_filepath: "/esthar/diviner_data/database/diviner_data_job_0.db"
 
 # Pathway to the tmp directory
 tmp_directory: "/esthar/diviner_data/tmp"
 
 # Filepath to the useful tab files list
 useful_tabs_filepath: "/esthar/diviner_data/txt_files/useful_tabs.txt"
+
+# Directory to logs
+log_directory: "/esthar/diviner_data/txt_files/logs/job_0"
 
 # Batch size of number of .TAB files processed per iteration
 batch_size: 20

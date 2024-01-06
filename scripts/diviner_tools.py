@@ -1,12 +1,15 @@
-##
-# @file diviner_tools.py
-# @author Chantelle G. Dubois (chantelle.dubois@mail.concordia.ca)
-#	
+'''
+@file diviner_tools.py
+@author Chantelle G. Dubois (chantelle.dubois@mail.concordia.ca)
+
+@brief Tools to help pre-process diviner data
+'''
 
 from bs4 import BeautifulSoup
 import concurrent.futures
 from datetime import datetime, timedelta
 from enum import Enum
+import logging
 import os
 import pytz
 import requests
@@ -61,6 +64,9 @@ class DivinerTools(object):
 		# Filepath to the useful tab files list
 		self.__usefulTabsFilepath = self.__cfg['useful_tabs_filepath']
 
+		# Directory to logs
+		self.__logDir = self.__cfg['log_directory']
+
 		# Batch size for number of .TAB files processed per iteration
 		self.__batchSize = self.__cfg['batch_size']
 
@@ -72,16 +78,42 @@ class DivinerTools(object):
 
 		# Flag to indicate whether or not to use timer
 		self.__useTimer = self.__cfg['use_timer'] 
-		
+
+		# Create directories if they don't exist
+		self.__createDir(self.__tmpDir)
+		self.__createDir(self.__logDir)
+
+		# Configure logger
+		self.__configLogger()
+
 		# Create database if it doesn't exist yet
 		self.__createDatabase()
 
-	
+
+	def __configLogger(self):
+		'''
+		@brief Configures logger module
+		'''
+		log_filepath = "{0}/diviner_tools_log_{1}.log".format(
+			self.__logDir, datetime.now().strftime("%Y-%m-%d_%H-%M"))
+
+		logging.basicConfig(
+			level=logging.DEBUG,
+			format='%(asctime)s - %(levelname)s - %(message)s',
+			handlers=[
+				logging.FileHandler(log_filepath), 
+				logging.StreamHandler()]
+			)
+
+		logging.info("Logging started: " + repr(log_filepath))
+
+
 	def __writeChunk(self, jobs_chunk):
-		"""! Writes a chunk of queued jobs to SQL database
+		'''
+		@brief Writes a chunk of queued jobs to SQL database
 		
 		@param jobs_chunk A list containing a chunk of jobs
-		"""
+		'''
 		
 		db_connection = sqlite3.connect(self.__dbFilepath)
 		db_cursor = db_connection.cursor()
@@ -94,9 +126,10 @@ class DivinerTools(object):
 
 
 	def __jobMonitor(self):
-		"""! Monitors a job queue for data that needs to be written
-			to a database.
-		"""
+		'''
+		@brief 	Monitors a job queue for data that needs to be written
+				to a database.
+		'''
 
 		# To speed up writing, we can process
 		# jobs in 'chunks'
@@ -110,7 +143,7 @@ class DivinerTools(object):
 				job = self.job_queue.get()
 
 				if job is None:
-					print("\nJob monitor stopped")
+					logging.info("\nJob monitor stopped")
 					break
 
 				else:
@@ -131,8 +164,9 @@ class DivinerTools(object):
 
 
 	def __startJobMonitor(self):
-		"""! Starts a thread that runs an SQL job monitor
-		"""
+		'''
+		@brief Starts a thread that runs an SQL job monitor
+		'''
 		self.job_queue = queue.Queue()
 
 		self.job_monitor = threading.Thread(target=self.__jobMonitor)
@@ -140,21 +174,19 @@ class DivinerTools(object):
 
 
 	def __waitForJobQueueToEmpty(self):
-		"""! Waits for the job queue to empty
-		"""
+		'''
+		@brief Waits for the job queue to empty
+		'''
 		while (self.job_queue.qsize() > 0):
-			# Trying to enforce printing on the same line...
-			sys.stdout.write("\033[K") 
-			sys.stdout.write("\rRemaining jobs: {}  ".format(self.job_queue.qsize()))
-			sys.stdout.flush()
-
+			logging.info("Remaining jobs: {}".format(self.job_queue.qsize()))
 			time.sleep(1)
 
 
 	def __stopJobMonitor(self):
-		"""! Waits until all SQL jobs are complete and then issues
-			a stop command that will stop the job monitor thread
-		"""
+		'''
+		@brief	Waits until all SQL jobs are complete and then issues
+				a stop command that will stop the job monitor thread
+		'''
 
 		# Wait until all jobs are completed
 		self.__waitForJobQueueToEmpty()
@@ -167,17 +199,19 @@ class DivinerTools(object):
 
 
 	def __createDir(self, data_dir):
-		"""! Creates project directory if it doesn't already exist
+		'''
+		@brief Creates project directory if it doesn't already exist
 
 		@param data_dir The data directory filepath
-		"""
+		'''
 		if not os.path.exists(data_dir):
 			os.makedirs(data_dir)
 
 
 	def __createDatabase(self):
-		"""! Create database if it doesn't exist
-		"""
+		'''
+		@brief Create database if it doesn't exist
+		'''
 		db_connection = sqlite3.connect(self.__dbFilepath)
 
 		# Creating a cursor object allows us to interact
@@ -239,12 +273,14 @@ class DivinerTools(object):
 
 
 	def get_sub_urls(self, parent_url, pattern=None):
-		"""! Returns a list of sub-links on a parent page
+		'''
+		@brief Returns a list of sub-links on a parent page
 
 		@param parent_url The url page that is being searched
 		@param pattern A regex pattern if required to filter the url list
+
 		@return A list of sub-links on the page
-		"""
+		'''
 
 		# Send a GET request to get page elements
 		response = requests.get(parent_url)
@@ -261,11 +297,12 @@ class DivinerTools(object):
 	
 
 	def multithread_crawl(self, input_urls, pattern=None):
-		"""! Crawls through urls on a page using multithreading
+		'''
+		@brief Crawls through urls on a page using multithreading
 
 		@param input_urls The parent urls to search
 		@param pattern Optional regex pattern to match url against 
-		"""
+		'''
 	
 		# Use multi-threading
 		with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -282,7 +319,9 @@ class DivinerTools(object):
 	
 	
 	def find_all_zip_urls(self, target_year=None):
-		"""! Walks through the RDR V1 parent links to find all zip file urls"""
+		'''
+		@brief Walks through the RDR V1 parent links to find all zip file urls
+		'''
 
 		# lroldr_1001 contains data from 2009 - 2016
 		# lroldr_1002 contains data from 2017 - 2023
@@ -314,13 +353,14 @@ class DivinerTools(object):
 	
 
 	def download_unpack_delete(self, dest_dir, src_url):
-		"""! Given a link to a .zip file, this function will
-			download, unpack the .zip file, then delete
-			the original .zip file to minimize storage used
+		'''
+		@brief	Given a link to a .zip file, this function will
+				download, unpack the .zip file, then delete
+				the original .zip file to minimize storage used
 	
 		@param local_dir The local directory to save to
 		@param zip_url The url to the target .zip file
-		"""
+		'''
 
 		# Verify the destination directory exists
 		os.makedirs(dest_dir, exist_ok=True)
@@ -342,12 +382,13 @@ class DivinerTools(object):
 
 
 	def check_params(self, data):
-		"""! Checks if an RDR table entry matches filter criteria
+		'''
+		@brief Checks if an RDR table entry matches filter criteria
 
 		@param data RDR table entry
 
 		@return A boolean on whether or not the data meets criteria
-		"""
+		'''
 
 		# Check the data conforms to the params:
 		#    af == 110
@@ -367,11 +408,12 @@ class DivinerTools(object):
 
 
 	def insert_into_database(self, data):
-		"""! Adds a Diviner RDR LVL1 data line into a target database
+		'''
+		@brief Adds a Diviner RDR LVL1 data line into a target database
 
 		@param data The text line containing the data entry
 		@param 0 or 1 depending if the data was added or not
-		"""
+		'''
 	
 		# Split the line    
 		values = data.strip().split(',')
@@ -404,18 +446,20 @@ class DivinerTools(object):
 				return 1
 
 			except Exception as e:
-				print("Error adding SQL job to queue: ", e)
+				logging.error("Error adding SQL job to queue: ", e)
 				return 0
 		else:
 			return 0
 	
 
 	def tab_to_lines(self, src_tab):
-		"""! Parses .TAB file into lines
+		'''
+		@brief Parses .TAB file into lines
 
 		@param src_tab Source .TAB file
+		
 		@return A list of strings
-		"""
+		'''
 
 		lines = []
 
@@ -432,11 +476,12 @@ class DivinerTools(object):
 
 
 	def append_to_file(self, txt_filepath, data):
-		"""! Appends data to target text file
+		'''
+		@brief Appends data to target text file
 
 		@param txt_filepath The text file path
 		@param data The data to be appended
-		"""
+		'''
 		# Appending a string
 		if isinstance(data, str):
 			with open(txt_filepath, 'a') as file:
@@ -449,10 +494,11 @@ class DivinerTools(object):
 
 
 	def txt_to_list(self, txt_filepath):
-		"""! Generates a list from a textfile
+		'''
+		@brief Generates a list from a textfile
 
 		@param txt_filepath The path to the target text file
-		"""
+		'''
 		with open(txt_filepath, 'r') as file:
 			lines = [line.strip() for line in file.readlines()]
 
@@ -460,25 +506,28 @@ class DivinerTools(object):
 
 
 	def __startTimer(self):
-		"""! Logs a start time
-		"""
+		'''
+		@brief Logs a start time
+		'''
 
 		# Log start time
 		start_t = datetime.now(pytz.timezone('America/Montreal'))
 
-		print("\nStart time: " + repr(start_t.strftime('%Y-%m-%d %H:%M')))
+		logging.info("\nStart time: " + repr(start_t.strftime('%Y-%m-%d %H:%M')))
 
 		return start_t
 
+
 	def __timeElapsed(self, start_time):
-		"""! Determines elapsed time given a start time and prints
-			in human-readable format
+		'''
+		@brief	Determines elapsed time given a start time and prints
+				in human-readable format
 
 		@param start_time The start time
-		"""
+		'''
 
 		end_t = datetime.now(pytz.timezone('America/Montreal'))
-		print("\nEnd time: " + repr(end_t.strftime('%Y-%m-%d %H:%M')))
+		logging.info("End time: " + repr(end_t.strftime('%Y-%m-%d %H:%M')))
 
 		# Total elapsed time
 		delta_t = end_t - start_time
@@ -493,15 +542,16 @@ class DivinerTools(object):
 		# Format the output as HH:mm:ss
 		formatted_time = f"{hours:02}:{minutes:02}:{seconds:02}"
 
-		print("\nElapsed time: " + formatted_time)
-	
+		logging.info("\nElapsed time: " + formatted_time)
+
 
 	def __processor(self, url):
-		"""! Preprocesses RDR data tables all the way from download
-			to writing to the database
+		'''
+		@brief	Preprocesses RDR data tables all the way from download
+				to writing to the database
 
 		@param url The url of the .zip file containing RDR data
-		"""
+		'''
 		self.download_unpack_delete(self.__tmpDir, url)
 
 		# Synth filename from url
@@ -533,19 +583,23 @@ class DivinerTools(object):
 
 
 	def batch(self, input_list, batch_size):
-		"""! Splits a list into a list of lists of a specified size
+		'''
+		@brief Splits a list into a list of lists of a specified size
 
 		@param input_list A list
 		@param batch_size The desired size of sub-lists
-		"""
+
+		@return A list of lists
+		'''
 		return [input_list[i:i + batch_size] for i in range(0, len(input_list), batch_size)]
 
 
 	def preprocess(self, data):
-		"""! Initiates the pre-processing loop
+		'''
+		@brief Initiates the pre-processing loop
 
 		@param data A list of zip urls
-		"""
+		'''
 
 		# Start timer if the timer option is selected
 		if (self.__useTimer):
@@ -559,7 +613,7 @@ class DivinerTools(object):
 
 		for n, batch in tqdm(enumerate(batched_data, start=0), total=len(batched_data)):
 
-			print("=========== Batch: " + repr(n) + " ===========")
+			logging.info("=========== Batch: " + repr(n) + " ===========")
 
 			# Start thread pool, should choose max workers carefully to not overrun memory
 			with concurrent.futures.ThreadPoolExecutor(max_workers=self.__maxWorkers) as executor:
