@@ -28,7 +28,7 @@ def main():
 	ZIP_FILEPATH = sys.argv[2]
 
 	# Batch ID (0 to 7)
-	BATCH_ID = sys.argv[3]
+	BATCH_ID = int(sys.argv[3])
 
 	# Master batch size
 	M_BATCH_SIZE = 100000
@@ -61,7 +61,7 @@ def main():
 	master_batches = dt.batch(all_urls, M_BATCH_SIZE)
 
 	# Pre-process loop
-	#dt.preprocess(master_batches[BATCH_ID])
+	dt.preprocess(master_batches[BATCH_ID])
 
 if __name__ == "__main__":
 	main()
