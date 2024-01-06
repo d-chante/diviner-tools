@@ -64,6 +64,12 @@ class DivinerTools(object):
 		# Batch size for number of .TAB files processed per iteration
 		self.__batchSize = self.__cfg['batch_size']
 
+		# Max transaction size for SQL queries
+		self.__transactionSize = self.__cfg['transaction_size']
+
+		# Max number of thread workers
+		self.__maxWorkers = self.__cfg['max_workers']
+
 		# Flag to indicate whether or not to use timer
 		self.__useTimer = self.__cfg['use_timer'] 
 		
@@ -96,8 +102,6 @@ class DivinerTools(object):
 		# jobs in 'chunks'
 		jobs_chunk = []
 
-		MAX_CHUNK_SIZE = 1000
-
 		while True:
 			curr_qsize = self.job_queue.qsize()
 
@@ -113,7 +117,7 @@ class DivinerTools(object):
 					jobs_chunk.append(job)
 
 					# Dynamically determine the chunk size
-					curr_chunk_size = min(curr_qsize, MAX_CHUNK_SIZE)
+					curr_chunk_size = min(curr_qsize, self.__transactionSize)
 
 					# Fill chunk list 
 					for j in range(curr_chunk_size - 1):
@@ -121,6 +125,9 @@ class DivinerTools(object):
 
 					# Send chunk to be processed
 					self.__writeChunk(jobs_chunk)
+
+					# Clear chunk
+					jobs_chunk = []
 
 
 	def __startJobMonitor(self):
@@ -554,9 +561,8 @@ class DivinerTools(object):
 
 			print("=========== Batch: " + repr(n) + " ===========")
 
-			# Start thread pool, using 10 workers max to avoid overrunning
-			# memory or the job queue
-			with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+			# Start thread pool, should choose max workers carefully to not overrun memory
+			with concurrent.futures.ThreadPoolExecutor(max_workers=self.__maxWorkers) as executor:
 
 				futures = [executor.submit(self.__processor, url) for url in batch]
 
