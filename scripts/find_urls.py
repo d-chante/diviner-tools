@@ -13,7 +13,7 @@ from diviner_tools import DivinerTools
 def main()
 
 	# Get CFG_FILEPATH and ZIP_FILEPATH from args
-	if len(sys.argv) < 4:
+	if len(sys.argv) < 3:
 		print("CFG_FILEPATH and ZIP_FILEPATH required")
 		sys.exit(1)
 	
