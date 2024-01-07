@@ -27,12 +27,11 @@ def main():
 	# Filepath to list of .zip URLs
 	ZIP_FILEPATH = sys.argv[2]
 
-	# Batch ID (0 to 718)
+	# Batch ID (0 to 29)
 	BATCH_ID = int(sys.argv[3])
 
 	# Master batch size
-	# A single 1000 batch should take about 5 days to process
-	M_BATCH_SIZE = 1000
+	M_BATCH_SIZE = 25000
 
 	'''
 	diviner_tools is a custom library developed specifically for this task. Upon initialization 
@@ -53,8 +52,7 @@ def main():
 		* Delete the .TAB file
 
 	Since there is a lot of data to process which may take a long period of time, we will split 
-	the 717,509 URLs into parent batches of 100,000 each and will manually start each 100,000 
-	master batch. 
+	the 717,509 URLs into parent batches and will manually start each master batch. 
 	'''
 	all_urls = dt.txt_to_list(ZIP_FILEPATH)
 

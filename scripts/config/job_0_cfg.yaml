@@ -1,11 +1,11 @@
 # Filepath to the target database
-database_filepath: "/esthar/diviner_data/database/diviner_data_job_0.db"
+database_filepath: "/esthar/diviner_data/database/diviner_data_job_0_mbatch25000.db"
 
 # Pathway to the tmp directory
 tmp_directory: "/esthar/diviner_data/tmp"
 
 # Filepath to the useful tab files list
-useful_tabs_filepath: "/esthar/diviner_data/txt_files/useful_tabs.txt"
+useful_tabs_filepath: "/esthar/diviner_data/txt_files/useful_tabs/useful_tabs_job_0.txt"
 
 # Directory to logs
 log_directory: "/esthar/diviner_data/txt_files/logs/job_0"
