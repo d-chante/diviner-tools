@@ -427,7 +427,7 @@ class DivinerTools(object):
 				job_values = [
 					values[FIELD.DATE.value], values[FIELD.UTC.value], float(values[FIELD.JDATE.value]),
 					float(values[FIELD.ORBIT.value]), float(values[FIELD.SUNDIST.value]), float(values[FIELD.SUNLAT.value]),
-					float(values[FIELD.SUNLON.value]), float(values[FIELD.SCLK.value]), values[FIELD.SCLAT.value],
+					float(values[FIELD.SUNLON.value]), float(values[FIELD.SCLK.value]), float(values[FIELD.SCLAT.value]),
 					float(values[FIELD.SCLON.value]), float(values[FIELD.SCRAD.value]), float(values[FIELD.SCALT.value]),
 					float(values[FIELD.EL_CMD.value]), float(values[FIELD.AZ_CMD.value]), float(values[FIELD.AF.value]),
 					float(values[FIELD.ORIENTLAT.value]), float(values[FIELD.ORIENTATION.value]), float(values[FIELD.C.value]),
