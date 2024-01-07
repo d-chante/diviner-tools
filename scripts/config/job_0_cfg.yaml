@@ -11,13 +11,13 @@ useful_tabs_filepath: "/esthar/diviner_data/txt_files/useful_tabs.txt"
 log_directory: "/esthar/diviner_data/txt_files/logs/job_0"
 
 # Batch size of number of .TAB files processed per iteration
-batch_size: 50
+batch_size: 32
 
 # Max transaction size for SQL queries
 transaction_size: 100000
 
 # Max number of thread workers
-max_workers: 50
+max_workers: 32
 
 # Flag to indicate whether or not to use timer
 use_timer: true 
