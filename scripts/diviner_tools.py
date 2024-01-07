@@ -190,9 +190,6 @@ class DivinerTools(object):
 
 		# Wait until all jobs are completed
 		self.__waitForJobQueueToEmpty()
-
-		# One last flush
-		sys.stdout.flush()
 		
 		# Send None job to stop job monitor
 		self.job_queue.put(None)
@@ -613,7 +610,7 @@ class DivinerTools(object):
 
 		for n, batch in tqdm(enumerate(batched_data, start=0), total=len(batched_data)):
 
-			logging.info("=========== Batch: " + repr(n) + " ===========")
+			logging.info("\n=========== Batch: " + repr(n) + " ===========")
 
 			# Start thread pool, should choose max workers carefully to not overrun memory
 			with concurrent.futures.ThreadPoolExecutor(max_workers=self.__maxWorkers) as executor:
