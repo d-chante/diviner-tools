@@ -27,7 +27,7 @@ def main():
 	# Filepath to list of .zip URLs
 	ZIP_FILEPATH = sys.argv[2]
 
-	# Batch ID (0 to 29)
+	# Batch ID (0 to 28)
 	BATCH_ID = int(sys.argv[3])
 
 	# Master batch size
