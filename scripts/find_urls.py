@@ -9,8 +9,9 @@
 		Each year takes approximately 30-45 seconds, so total time should be around 5-10 minutes.
 '''
 from diviner_tools import DivinerTools
+import sys
 
-def main()
+def main():
 
 	# Get CFG_FILEPATH and ZIP_FILEPATH from args
 	if len(sys.argv) < 3:
@@ -27,11 +28,11 @@ def main()
 	dt = DivinerTools(CFG_FILEPATH)
 
 	# Extract .zip URLs
-	zip_urls = dt.find_all_zip_urls()
+	zip_urls = dt.findZipUrls()
 	print("Found " + repr(len(zip_urls)) + " .zip file urls")
 
 	# Save URLs to file
-	append_to_file(ZIP_FILEPATH, zip_urls)
+	dt.appendToFile(ZIP_FILEPATH, zip_urls)
 	print("Saved to: " + ZIP_FILEPATH)
 
 

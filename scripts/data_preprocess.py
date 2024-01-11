@@ -3,13 +3,7 @@
 @author Chantelle G. Dubois (chantelle.dubois@mail.concordia.ca)
  
 @brief	This python script provides a procedure to pre-process channel 7 Diviner data 
-		collected between January 2010 - September 2023 as part of a goal to replicate 
-		the work published in [Unsupervised Learning for Thermophysical Analysis on the 
-		Lunar Surface](https://iopscience.iop.org/article/10.3847/PSJ/ab9a52) by 
-		Moseley et al. (2020).
-		
-		A particular objective of this pre-processing notebook is to use only a standard 
-		computer (CPU, multi-threading) with augmented storage space (~5TB).
+	collected between January 2010 - September 2023.
 '''
 from diviner_tools import DivinerTools
 import sys
@@ -54,7 +48,7 @@ def main():
 	Since there is a lot of data to process which may take a long period of time, we will split 
 	the 717,509 URLs into parent batches and will manually start each master batch. 
 	'''
-	all_urls = dt.txt_to_list(ZIP_FILEPATH)
+	all_urls = dt.txtToList(ZIP_FILEPATH)
 
 	# Master batches
 	master_batches = dt.batch(all_urls, M_BATCH_SIZE)
@@ -64,4 +58,3 @@ def main():
 
 if __name__ == "__main__":
 	main()
-

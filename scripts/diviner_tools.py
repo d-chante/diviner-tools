@@ -11,11 +11,11 @@ from datetime import datetime, timedelta
 from enum import Enum
 import logging
 import os
+from public import public
 import pytz
 import requests
 import re
 import sqlite3
-import sys
 import threading
 from tqdm import tqdm
 import time
@@ -89,41 +89,9 @@ class DivinerTools(object):
 		# Create database if it doesn't exist yet
 		self.__createDatabase()
 
-
-	def __configLogger(self):
-		'''
-		@brief Configures logger module
-		'''
-		log_filepath = "{0}/diviner_tools_log_{1}.log".format(
-			self.__logDir, datetime.now().strftime("%Y-%m-%d_%H-%M"))
-
-		logging.basicConfig(
-			level=logging.DEBUG,
-			format='%(asctime)s - %(levelname)s - %(message)s',
-			handlers=[
-				logging.FileHandler(log_filepath), 
-				logging.StreamHandler()]
-			)
-
-		logging.info("Logging started: " + repr(log_filepath))
-
-
-	def __writeChunk(self, jobs_chunk):
-		'''
-		@brief Writes a chunk of queued jobs to SQL database
-		
-		@param jobs_chunk A list containing a chunk of jobs
-		'''
-		
-		db_connection = sqlite3.connect(self.__dbFilepath)
-		db_cursor = db_connection.cursor()
-
-		for job in jobs_chunk:
-			db_cursor.execute(JOB_TEMPLATE, job)
-
-		db_connection.commit()
-		db_connection.close()
-
+# * * * * * * * * * * * * * * * * * * * * * * * * *
+# JOB QUEUE
+# * * * * * * * * * * * * * * * * * * * * * * * * *
 
 	def __jobMonitor(self):
 		'''
@@ -173,15 +141,6 @@ class DivinerTools(object):
 		self.job_monitor.start()
 
 
-	def __waitForJobQueueToEmpty(self):
-		'''
-		@brief Waits for the job queue to empty
-		'''
-		while (self.job_queue.qsize() > 0):
-			logging.info("Remaining jobs: {}".format(self.job_queue.qsize()))
-			time.sleep(1)
-
-
 	def __stopJobMonitor(self):
 		'''
 		@brief	Waits until all SQL jobs are complete and then issues
@@ -194,6 +153,96 @@ class DivinerTools(object):
 		# Send None job to stop job monitor
 		self.job_queue.put(None)
 
+
+	def __waitForJobQueueToEmpty(self):
+		'''
+		@brief Waits for the job queue to empty
+		'''
+		while (self.job_queue.qsize() > 0):
+			logging.info("Remaining jobs: {}".format(self.job_queue.qsize()))
+			time.sleep(1)
+
+
+	def __writeChunk(self, jobs_chunk):
+		'''
+		@brief Writes a chunk of queued jobs to SQL database
+		
+		@param jobs_chunk A list containing a chunk of jobs
+		'''
+		
+		db_connection = sqlite3.connect(self.__dbFilepath)
+		db_cursor = db_connection.cursor()
+
+		for job in jobs_chunk:
+			db_cursor.execute(JOB_TEMPLATE, job)
+
+		db_connection.commit()
+		db_connection.close()
+
+# * * * * * * * * * * * * * * * * * * * * * * * * *
+# TIMING AND LOGGING
+# * * * * * * * * * * * * * * * * * * * * * * * * *
+			
+	def __startTimer(self):
+		'''
+		@brief Logs a start time
+		'''
+
+		# Log start time
+		start_t = datetime.now(pytz.timezone('America/Montreal'))
+
+		logging.info("\nStart time: " + repr(start_t.strftime('%Y-%m-%d %H:%M')))
+
+		return start_t
+
+
+	def __timeElapsed(self, start_time):
+		'''
+		@brief	Determines elapsed time given a start time and prints
+				in human-readable format
+
+		@param start_time The start time
+		'''
+
+		end_t = datetime.now(pytz.timezone('America/Montreal'))
+		logging.info("End time: " + repr(end_t.strftime('%Y-%m-%d %H:%M')))
+
+		# Total elapsed time
+		delta_t = end_t - start_time
+
+		# Calculate total seconds in the timedelta
+		total_seconds = int(delta_t.total_seconds())
+
+		# Extract hours, minutes, and seconds
+		hours, remainder = divmod(total_seconds, 3600)
+		minutes, seconds = divmod(remainder, 60)
+
+		# Format the output as HH:mm:ss
+		formatted_time = f"{hours:02}:{minutes:02}:{seconds:02}"
+
+		logging.info("\nElapsed time: " + formatted_time)
+
+
+	def __configLogger(self):
+		'''
+		@brief Configures logger module
+		'''
+		log_filepath = "{0}/diviner_tools_log_{1}.log".format(
+			self.__logDir, datetime.now().strftime("%Y-%m-%d_%H-%M"))
+
+		logging.basicConfig(
+			level=logging.DEBUG,
+			format='%(asctime)s - %(levelname)s - %(message)s',
+			handlers=[
+				logging.FileHandler(log_filepath), 
+				logging.StreamHandler()]
+			)
+
+		logging.info("Logging started: " + repr(log_filepath))
+
+# * * * * * * * * * * * * * * * * * * * * * * * * *
+# FILE/DIRECTORY MANAGEMENT
+# * * * * * * * * * * * * * * * * * * * * * * * * *
 
 	def __createDir(self, data_dir):
 		'''
@@ -269,87 +318,7 @@ class DivinerTools(object):
 		db_connection.close()
 
 
-	def get_sub_urls(self, parent_url, pattern=None):
-		'''
-		@brief Returns a list of sub-links on a parent page
-
-		@param parent_url The url page that is being searched
-		@param pattern A regex pattern if required to filter the url list
-
-		@return A list of sub-links on the page
-		'''
-
-		# Send a GET request to get page elements
-		response = requests.get(parent_url)
-		soup = BeautifulSoup(response.text, "html.parser")
-
-		# Extract sub-urls
-		sub_urls = [urljoin(parent_url, link.get("href")) for link in soup.find_all("a", href=True)]
-
-		# Filter the list using regex if a pattern is specified
-		if pattern:
-			sub_urls = [url for url in sub_urls if re.compile(pattern).match(url)]
-
-		return sub_urls
-	
-
-	def multithread_crawl(self, input_urls, pattern=None):
-		'''
-		@brief Crawls through urls on a page using multithreading
-
-		@param input_urls The parent urls to search
-		@param pattern Optional regex pattern to match url against 
-		'''
-	
-		# Use multi-threading
-		with concurrent.futures.ThreadPoolExecutor() as executor:
-	
-			if pattern:
-				target_urls_list = list(executor.map(lambda target: self.get_sub_urls(target, pattern), input_urls))
-			else:
-				target_urls_list = list(executor.map(lambda target: self.get_sub_urls(target, target), input_urls))
-
-		# Collapse into single list
-		target_urls = [url for sublist in target_urls_list for url in sublist] 
-
-		return target_urls
-	
-	
-	def find_all_zip_urls(self, target_year=None):
-		'''
-		@brief Walks through the RDR V1 parent links to find all zip file urls
-		'''
-
-		# lroldr_1001 contains data from 2009 - 2016
-		# lroldr_1002 contains data from 2017 - 2023
-		parent_urls = [
-			'https://pds-geosciences.wustl.edu/lro/lro-l-dlre-4-rdr-v1/lrodlr_1001/data/',
-			'https://pds-geosciences.wustl.edu/lro/lro-l-dlre-4-rdr-v1/lrodlr_1002/data/']
-
-		# Regex pattern will filter URLs for years
-		# If a year is specified, the search is only for that year
-		# Otherwise it is for all years 2010-2023
-		if target_year:
-			pattern = r'.*/{0}/'.format(target_year)
-		else:
-			pattern = r'.*/20[1-2]\d/$'
-	
-		# Generate list of year urls
-		year_urls = self.get_sub_urls(parent_urls[0], pattern) + self.get_sub_urls(parent_urls[1], pattern)
-	
-		# Search for month urls
-		month_urls = self.multithread_crawl(year_urls)
-
-		# Search for day urls
-		day_urls = self.multithread_crawl(month_urls)
-
-		# Search for zip urls
-		zip_urls = self.multithread_crawl(day_urls, r'.+\.zip$')
-
-		return zip_urls
-	
-
-	def download_unpack_delete(self, dest_dir, src_url):
+	def __getTab(self, dest_dir, src_url):
 		'''
 		@brief	Given a link to a .zip file, this function will
 				download, unpack the .zip file, then delete
@@ -377,8 +346,166 @@ class DivinerTools(object):
 		# Delete original .zip file
 		os.remove(filename)
 
+	@public
+	def appendToFile(self, txt_filepath, data):
+		'''
+		@brief Appends data to target text file
 
-	def check_params(self, data):
+		@param txt_filepath The text file path
+		@param data The data to be appended
+		'''
+		# Appending a string
+		if isinstance(data, str):
+			with open(txt_filepath, 'a') as file:
+				file.write(data + '\n')
+
+		# Appending a list of strings
+		elif isinstance(data, list):
+			with open(txt_filepath, 'a') as file:
+				file.writelines('\n'.join(data))
+
+# * * * * * * * * * * * * * * * * * * * * * * * * *
+# CONVERSION/MANIPULATION
+# * * * * * * * * * * * * * * * * * * * * * * * * *
+
+	@public
+	def tabToLines(self, src_tab):
+		'''
+		@brief Parses .TAB file into lines
+
+		@param src_tab Source .TAB file
+		
+		@return A list of strings
+		'''
+
+		lines = []
+
+		# Open and read .TAB file starting at line 5
+		with open(src_tab, 'r') as file:
+			for _ in range(4):
+				next(file)
+
+			# Read each line and remove carriage character
+			for line in file:
+				lines.append(line.rstrip('^M'))
+
+		return lines
+	
+
+	@public
+	def txtToList(self, txt_filepath):
+		'''
+		@brief Generates a list from a textfile
+
+		@param txt_filepath The path to the target text file
+		'''
+		with open(txt_filepath, 'r') as file:
+			lines = [line.strip() for line in file.readlines()]
+
+		return lines
+	
+
+	@public
+	def batch(self, input_list, batch_size):
+		'''
+		@brief Splits a list into a list of lists of a specified size
+
+		@param input_list A list
+		@param batch_size The desired size of sub-lists
+
+		@return A list of lists
+		'''
+		return [input_list[i:i + batch_size] for i in range(0, len(input_list), batch_size)]
+
+# * * * * * * * * * * * * * * * * * * * * * * * * *
+# ZIP URLS
+# * * * * * * * * * * * * * * * * * * * * * * * * *
+		
+	def __getSubUrls(self, parent_url, pattern=None):
+		'''
+		@brief Returns a list of sub-links on a parent page
+
+		@param parent_url The url page that is being searched
+		@param pattern A regex pattern if required to filter the url list
+
+		@return A list of sub-links on the page
+		'''
+
+		# Send a GET request to get page elements
+		response = requests.get(parent_url)
+		soup = BeautifulSoup(response.text, "html.parser")
+
+		# Extract sub-urls
+		sub_urls = [urljoin(parent_url, link.get("href")) for link in soup.find_all("a", href=True)]
+
+		# Filter the list using regex if a pattern is specified
+		if pattern:
+			sub_urls = [url for url in sub_urls if re.compile(pattern).match(url)]
+
+		return sub_urls
+	
+
+	def __crawl(self, input_urls, pattern=None):
+		'''
+		@brief Crawls through urls on a page using multithreading
+
+		@param input_urls The parent urls to search
+		@param pattern Optional regex pattern to match url against 
+		'''
+	
+		# Use multi-threading
+		with concurrent.futures.ThreadPoolExecutor() as executor:
+	
+			if pattern:
+				target_urls_list = list(executor.map(lambda target: self.__getSubUrls(target, pattern), input_urls))
+			else:
+				target_urls_list = list(executor.map(lambda target: self.__getSubUrls(target, target), input_urls))
+
+		# Collapse into single list
+		target_urls = [url for sublist in target_urls_list for url in sublist] 
+
+		return target_urls
+	
+
+	@public
+	def findZipUrls(self, target_year=None):
+		'''
+		@brief Walks through the RDR V1 parent links to find all zip file urls
+		'''
+
+		# lroldr_1001 contains data from 2009 - 2016
+		# lroldr_1002 contains data from 2017 - 2023
+		parent_urls = [
+			'https://pds-geosciences.wustl.edu/lro/lro-l-dlre-4-rdr-v1/lrodlr_1001/data/',
+			'https://pds-geosciences.wustl.edu/lro/lro-l-dlre-4-rdr-v1/lrodlr_1002/data/']
+
+		# Regex pattern will filter URLs for years
+		# If a year is specified, the search is only for that year
+		# Otherwise it is for all years 2010-2023
+		if target_year:
+			pattern = r'.*/{0}/'.format(target_year)
+		else:
+			pattern = r'.*/20[1-2]\d/$'
+	
+		# Generate list of year urls
+		year_urls = self.__getSubUrls(parent_urls[0], pattern) + self.__getSubUrls(parent_urls[1], pattern)
+	
+		# Search for month urls
+		month_urls = self.__crawl(year_urls)
+
+		# Search for day urls
+		day_urls = self.__crawl(month_urls)
+
+		# Search for zip urls
+		zip_urls = self.__crawl(day_urls, r'.+\.zip$')
+
+		return zip_urls
+	
+# * * * * * * * * * * * * * * * * * * * * * * * * *
+# PREPROCESSING
+# * * * * * * * * * * * * * * * * * * * * * * * * *
+
+	def __checkParams(self, data):
 		'''
 		@brief Checks if an RDR table entry matches filter criteria
 
@@ -404,9 +531,9 @@ class DivinerTools(object):
 			return False
 
 
-	def insert_into_database(self, data):
+	def __processLine(self, data):
 		'''
-		@brief Adds a Diviner RDR LVL1 data line into a target database
+		@brief Checks if line is valid before adding to job queue
 
 		@param data The text line containing the data entry
 		@param 0 or 1 depending if the data was added or not
@@ -419,7 +546,7 @@ class DivinerTools(object):
 		values = [val.strip() for val in values]
 
 		# Check that the data conforms to desired params
-		dataok = self.check_params(values)
+		dataok = self.__checkParams(values)
 	
 		if(dataok):
 			try:
@@ -449,99 +576,6 @@ class DivinerTools(object):
 			return 0
 	
 
-	def tab_to_lines(self, src_tab):
-		'''
-		@brief Parses .TAB file into lines
-
-		@param src_tab Source .TAB file
-		
-		@return A list of strings
-		'''
-
-		lines = []
-
-		# Open and read .TAB file starting at line 5
-		with open(src_tab, 'r') as file:
-			for _ in range(4):
-				next(file)
-
-			# Read each line and remove carriage character
-			for line in file:
-				lines.append(line.rstrip('^M'))
-
-		return lines
-
-
-	def append_to_file(self, txt_filepath, data):
-		'''
-		@brief Appends data to target text file
-
-		@param txt_filepath The text file path
-		@param data The data to be appended
-		'''
-		# Appending a string
-		if isinstance(data, str):
-			with open(txt_filepath, 'a') as file:
-				file.write(data + '\n')
-
-		# Appending a list of strings
-		elif isinstance(data, list):
-			with open(txt_filepath, 'a') as file:
-				file.writelines('\n'.join(data))
-
-
-	def txt_to_list(self, txt_filepath):
-		'''
-		@brief Generates a list from a textfile
-
-		@param txt_filepath The path to the target text file
-		'''
-		with open(txt_filepath, 'r') as file:
-			lines = [line.strip() for line in file.readlines()]
-
-		return lines
-
-
-	def __startTimer(self):
-		'''
-		@brief Logs a start time
-		'''
-
-		# Log start time
-		start_t = datetime.now(pytz.timezone('America/Montreal'))
-
-		logging.info("\nStart time: " + repr(start_t.strftime('%Y-%m-%d %H:%M')))
-
-		return start_t
-
-
-	def __timeElapsed(self, start_time):
-		'''
-		@brief	Determines elapsed time given a start time and prints
-				in human-readable format
-
-		@param start_time The start time
-		'''
-
-		end_t = datetime.now(pytz.timezone('America/Montreal'))
-		logging.info("End time: " + repr(end_t.strftime('%Y-%m-%d %H:%M')))
-
-		# Total elapsed time
-		delta_t = end_t - start_time
-
-		# Calculate total seconds in the timedelta
-		total_seconds = int(delta_t.total_seconds())
-
-		# Extract hours, minutes, and seconds
-		hours, remainder = divmod(total_seconds, 3600)
-		minutes, seconds = divmod(remainder, 60)
-
-		# Format the output as HH:mm:ss
-		formatted_time = f"{hours:02}:{minutes:02}:{seconds:02}"
-
-		logging.info("\nElapsed time: " + formatted_time)
-
-
 	def __processor(self, url):
 		'''
 		@brief	Preprocesses RDR data tables all the way from download
@@ -549,14 +583,14 @@ class DivinerTools(object):
 
 		@param url The url of the .zip file containing RDR data
 		'''
-		self.download_unpack_delete(self.__tmpDir, url)
+		self.__getTab(self.__tmpDir, url)
 
 		# Synth filename from url
 		file = re.search(r'(\d{12}_rdr)', url)[0].upper()
 		filename = os.path.join(self.__tmpDir,  file + ".TAB")
 
 		# Read lines from .TAB file
-		lines = self.tab_to_lines(filename)
+		lines = self.tabToLines(filename)
 
 		# Process each line and add to database it qualifies
 		# Note: if we use multithreading, sqlite3 doesn't
@@ -564,7 +598,7 @@ class DivinerTools(object):
 		count = 0
     
 		for line in lines:
-			count += self.insert_into_database(line)
+			count += self.__processLine(line)
 
 		# Since there are files that contain no target 
 		# data, we want to keep track of the ones that do
@@ -572,25 +606,14 @@ class DivinerTools(object):
 		# every RDR file if we need to redo preprocessing
 		if (count > 0):
 			data = url + " " + repr(count)
-			self.append_to_file(self.__usefulTabsFilepath, data)
+			self.__appendToFile(self.__usefulTabsFilepath, data)
 
 		# We no longer need the .TAB data and will delete
 		# it to preserve storage space
 		os.remove(filename)
 
 
-	def batch(self, input_list, batch_size):
-		'''
-		@brief Splits a list into a list of lists of a specified size
-
-		@param input_list A list
-		@param batch_size The desired size of sub-lists
-
-		@return A list of lists
-		'''
-		return [input_list[i:i + batch_size] for i in range(0, len(input_list), batch_size)]
-
-
+	@public
 	def preprocess(self, data):
 		'''
 		@brief Initiates the pre-processing loop
