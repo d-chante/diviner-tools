@@ -37,13 +37,13 @@ FIELD = Enum("FIELD",
 	start=0)
 
 # The SQL job template
+# Note: This is not a 1-1 of all data fields
 JOB_TEMPLATE = '''
 	INSERT INTO RDR_LVL1_CH7 (
 		date, utc, jdate, orbit, sundist, sunlat, sunlon, sclk, sclat, sclon,
-		scrad, scalt, el_cmd, az_cmd, af, vert_lat, vert_lon, c, det, vlookx,
-		vlooky, vlookz, radiance, tb, clat, clon, cemis, csunzen, csunazi,
-		cloctime, qca, qge, qmi
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		scrad, scalt, el_cmd, az_cmd, vert_lat, vert_lon, det, vlookx, vlooky, 
+		vlookz, radiance, tb, clat, clon, cemis, csunzen, csunazi, cloctime
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	'''
 
 
@@ -282,10 +282,8 @@ class DivinerTools(object):
 			scalt REAL,
 			el_cmd REAL,
 			az_cmd REAL,
-			af INTEGER,
 			vert_lat REAL,
 			vert_lon REAL,
-			c INTEGER,
 			det INTEGER,
 			vlookx REAL,
 			vlooky REAL,
@@ -297,10 +295,7 @@ class DivinerTools(object):
 			cemis REAL,
 			csunzen REAL,
 			csunazi REAL,
-			cloctime REAL,
-			qca INTEGER,
-			qge INTEGER,
-			qmi INTEGER
+			cloctime REAL
 			);
 		'''
 
@@ -556,13 +551,12 @@ class DivinerTools(object):
 					float(values[FIELD.ORBIT.value]), float(values[FIELD.SUNDIST.value]), float(values[FIELD.SUNLAT.value]),
 					float(values[FIELD.SUNLON.value]), float(values[FIELD.SCLK.value]), float(values[FIELD.SCLAT.value]),
 					float(values[FIELD.SCLON.value]), float(values[FIELD.SCRAD.value]), float(values[FIELD.SCALT.value]),
-					float(values[FIELD.EL_CMD.value]), float(values[FIELD.AZ_CMD.value]), float(values[FIELD.AF.value]),
-					float(values[FIELD.ORIENTLAT.value]), float(values[FIELD.ORIENTATION.value]), float(values[FIELD.C.value]),
-					int(values[FIELD.DET.value]), float(values[FIELD.VLOOKX.value]), float(values[FIELD.VLOOKY.value]),
-					float(values[FIELD.VLOOKZ.value]), float(values[FIELD.RADIANCE.value]), float(values[FIELD.TB.value]),
-					float(values[FIELD.CLAT.value]), float(values[FIELD.CLON.value]), float(values[FIELD.CEMIS.value]),
-					float(values[FIELD.CSUNZEN.value]), float(values[FIELD.CSUNAZI.value]), float(values[FIELD.CLOCTIME.value]),
-					float(values[FIELD.QCA.value]), int(values[FIELD.QGE.value]), int(values[FIELD.QMI.value])]
+					float(values[FIELD.EL_CMD.value]), float(values[FIELD.AZ_CMD.value]), float(values[FIELD.ORIENTLAT.value]), 
+					float(values[FIELD.ORIENTATION.value]), int(values[FIELD.DET.value]), float(values[FIELD.VLOOKX.value]), 
+					float(values[FIELD.VLOOKY.value]), float(values[FIELD.VLOOKZ.value]), float(values[FIELD.RADIANCE.value]), 
+					float(values[FIELD.TB.value]), float(values[FIELD.CLAT.value]), float(values[FIELD.CLON.value]), 
+					float(values[FIELD.CEMIS.value]), float(values[FIELD.CSUNZEN.value]), float(values[FIELD.CSUNAZI.value]), 
+					float(values[FIELD.CLOCTIME.value])]
 
 				# Adding job to job queue
 				self.job_queue.put(job_values)
