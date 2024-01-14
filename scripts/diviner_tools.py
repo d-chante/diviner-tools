@@ -40,10 +40,9 @@ FIELD = Enum("FIELD",
 # Note: This is not a 1-1 of all data fields
 JOB_TEMPLATE = '''
 	INSERT INTO RDR_LVL1_CH7 (
-		date, utc, jdate, orbit, sundist, sunlat, sunlon, sclk, sclat, sclon,
-		scrad, scalt, el_cmd, az_cmd, vert_lat, vert_lon, det, vlookx, vlooky, 
-		vlookz, radiance, tb, clat, clon, cemis, csunzen, csunazi, cloctime
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		day, month, year, hour, minute, second, sundist, sunlat, sunlon,
+		radiance, tb, clat, clon, cemis, csunzen, csunazi, cloctime 
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	'''
 
 
@@ -111,7 +110,7 @@ class DivinerTools(object):
 				job = self.job_queue.get()
 
 				if job is None:
-					logging.info("\nJob monitor stopped")
+					logging.info("Job monitor stopped")
 					break
 
 				else:
@@ -191,7 +190,7 @@ class DivinerTools(object):
 		# Log start time
 		start_t = datetime.now(pytz.timezone('America/Montreal'))
 
-		logging.info("\nStart time: " + repr(start_t.strftime('%Y-%m-%d %H:%M')))
+		logging.info("Start time: " + repr(start_t.strftime('%Y-%m-%d %H:%M')))
 
 		return start_t
 
@@ -220,7 +219,7 @@ class DivinerTools(object):
 		# Format the output as HH:mm:ss
 		formatted_time = f"{hours:02}:{minutes:02}:{seconds:02}"
 
-		logging.info("\nElapsed time: " + formatted_time)
+		logging.info("Elapsed time: " + formatted_time)
 
 
 	def __configLogger(self):
@@ -268,26 +267,15 @@ class DivinerTools(object):
 		rdr_lvl1_ch7_schema = '''
 			CREATE TABLE IF NOT EXISTS RDR_LVL1_CH7 (
 			id INTEGER PRIMARY KEY,
-			date TEXT,
-			utc TEXT,
-			jdate REAL,
-			orbit INTEGER,
+			day INTEGER,
+			month INTEGER,
+			year INTEGER,
+			hour INTEGER,
+			minute INTEGER,
+			second INTEGER,
 			sundist REAL,
 			sunlat REAL,
 			sunlon REAL,
-			sclk REAL,
-			sclat REAL,
-			sclon REAL,
-			scrad REAL,
-			scalt REAL,
-			el_cmd REAL,
-			az_cmd REAL,
-			vert_lat REAL,
-			vert_lon REAL,
-			det INTEGER,
-			vlookx REAL,
-			vlooky REAL,
-			vlookz REAL,
 			radiance REAL,
 			tb REAL,
 			clat REAL,
@@ -411,6 +399,31 @@ class DivinerTools(object):
 		@return A list of lists
 		'''
 		return [input_list[i:i + batch_size] for i in range(0, len(input_list), batch_size)]
+	
+	def __dateStringToInt(self, date_string):
+		'''
+		@brief Converts a date in string format to integers
+
+		@param date_string A string representing a date in format "dd-mon-yyyy"
+
+		@return A list of integers representing a date in format [dd, mm, yy]
+		'''
+		date_dt = datetime.strptime(date_string, "%d-%b-%Y")
+
+		return [date_dt.day, date_dt.month, date_dt.year % 100]
+
+	def __timeStringToInt(self, time_string):
+		'''
+		@brief Converts a time string format to integers
+
+		@param time_string A string representing a time in format "HH:mm:ss.sss"
+
+		@return A list of integers representing a time in format [HH, mm, ss, sss]
+		'''
+		hh_mm_ss, sss = time_string.split('.')
+		hh, mm, ss = hh_mm_ss.split(':')
+		
+		return [int(hh), int(mm), int(ss), int(sss)]
 
 # * * * * * * * * * * * * * * * * * * * * * * * * *
 # ZIP URLS
@@ -537,26 +550,26 @@ class DivinerTools(object):
 		# Split the line    
 		values = data.strip().split(',')
 
-		# Remove any whitespaces from the values
-		values = [val.strip() for val in values]
+		# Remove any whitespaces and extra quotations from the values
+		values = [val.strip().strip('"') for val in values]
 
 		# Check that the data conforms to desired params
 		dataok = self.__checkParams(values)
 	
 		if(dataok):
 			try:
+				# Convert date string to integers
+				dd, mm, yy = self.__dateStringToInt(values[FIELD.DATE.value])
+
+				# Convert time string to integers
+				hr, min, sec, _ = self.__timeStringToInt(values[FIELD.UTC.value]) 
+
 				# The specific values to be inserted
 				job_values = [
-					values[FIELD.DATE.value], values[FIELD.UTC.value], float(values[FIELD.JDATE.value]),
-					float(values[FIELD.ORBIT.value]), float(values[FIELD.SUNDIST.value]), float(values[FIELD.SUNLAT.value]),
-					float(values[FIELD.SUNLON.value]), float(values[FIELD.SCLK.value]), float(values[FIELD.SCLAT.value]),
-					float(values[FIELD.SCLON.value]), float(values[FIELD.SCRAD.value]), float(values[FIELD.SCALT.value]),
-					float(values[FIELD.EL_CMD.value]), float(values[FIELD.AZ_CMD.value]), float(values[FIELD.ORIENTLAT.value]), 
-					float(values[FIELD.ORIENTATION.value]), int(values[FIELD.DET.value]), float(values[FIELD.VLOOKX.value]), 
-					float(values[FIELD.VLOOKY.value]), float(values[FIELD.VLOOKZ.value]), float(values[FIELD.RADIANCE.value]), 
-					float(values[FIELD.TB.value]), float(values[FIELD.CLAT.value]), float(values[FIELD.CLON.value]), 
-					float(values[FIELD.CEMIS.value]), float(values[FIELD.CSUNZEN.value]), float(values[FIELD.CSUNAZI.value]), 
-					float(values[FIELD.CLOCTIME.value])]
+					dd, mm, yy, hr, min, sec, float(values[FIELD.SUNDIST.value]), float(values[FIELD.SUNLAT.value]),
+					float(values[FIELD.SUNLON.value]), float(values[FIELD.RADIANCE.value]), float(values[FIELD.TB.value]), 
+					float(values[FIELD.CLAT.value]), float(values[FIELD.CLON.value]), float(values[FIELD.CEMIS.value]), 
+					float(values[FIELD.CSUNZEN.value]), float(values[FIELD.CSUNAZI.value]), float(values[FIELD.CLOCTIME.value])]
 
 				# Adding job to job queue
 				self.job_queue.put(job_values)
@@ -600,7 +613,7 @@ class DivinerTools(object):
 		# every RDR file if we need to redo preprocessing
 		if (count > 0):
 			data = url + " " + repr(count)
-			self.__appendToFile(self.__usefulTabsFilepath, data)
+			self.appendToFile(self.__usefulTabsFilepath, data)
 
 		# We no longer need the .TAB data and will delete
 		# it to preserve storage space
@@ -626,8 +639,6 @@ class DivinerTools(object):
 		batched_data = self.batch(data, self.__batchSize)
 
 		for n, batch in tqdm(enumerate(batched_data, start=0), total=len(batched_data)):
-
-			logging.info("\n=========== Batch: " + repr(n) + " ===========")
 
 			# Start thread pool, should choose max workers carefully to not overrun memory
 			with concurrent.futures.ThreadPoolExecutor(max_workers=self.__maxWorkers) as executor:
