@@ -16,13 +16,14 @@ import pytz
 import requests
 import re
 import sqlite3
+import sys
 import threading
 from tqdm import tqdm
 import time
 import queue
 from urllib.parse import urljoin
 import yaml
-from zipfile import ZipFile
+from zipfile import ZipFile, BadZipFile
 
 
 # Enum for data fields
@@ -62,6 +63,9 @@ class DivinerTools(object):
 
 		# Filepath to the useful tab files list
 		self.__usefulTabsFilepath = self.__cfg['useful_tabs_filepath']
+
+		# Filepath to bad files list
+		self.__badFilepath = self.__cfg['bad_filepath']
 
 		# Directory to logs
 		self.__logDir = self.__cfg['log_directory']
@@ -168,15 +172,21 @@ class DivinerTools(object):
 		
 		@param jobs_chunk A list containing a chunk of jobs
 		'''
-		
-		db_connection = sqlite3.connect(self.__dbFilepath)
-		db_cursor = db_connection.cursor()
+		try:
+			db_connection = sqlite3.connect(self.__dbFilepath)
+			db_cursor = db_connection.cursor()
 
-		for job in jobs_chunk:
-			db_cursor.execute(JOB_TEMPLATE, job)
+			for job in jobs_chunk:
+				db_cursor.execute(JOB_TEMPLATE, job)
 
-		db_connection.commit()
-		db_connection.close()
+			db_connection.commit()
+
+		except sqlite3.Error as e:
+			logging.error("Unable to write job to database: " + repr(e) + " - Job contents: " + repr(job))
+
+		finally:
+			if db_connection:
+				db_connection.close()
 
 # * * * * * * * * * * * * * * * * * * * * * * * * *
 # TIMING AND LOGGING
@@ -249,56 +259,67 @@ class DivinerTools(object):
 
 		@param data_dir The data directory filepath
 		'''
-		if not os.path.exists(data_dir):
-			os.makedirs(data_dir)
-
+		try:
+			if not os.path.exists(data_dir):
+				os.makedirs(data_dir)
+		
+		except Exception as e:
+			logging.error("Unable to create directory: " + repr(data_dir) + " Error message: " + repr(e))
 
 	def __createDatabase(self):
 		'''
 		@brief Create database if it doesn't exist
 		'''
-		db_connection = sqlite3.connect(self.__dbFilepath)
+		try:
+			db_connection = sqlite3.connect(self.__dbFilepath)
 
-		# Creating a cursor object allows us to interact
-		# with the database object through SQL commands
-		db_cursor = db_connection.cursor()
+			# Creating a cursor object allows us to interact
+			# with the database object through SQL commands
+			db_cursor = db_connection.cursor()
 
-		# Creating the table schema based on the RDR SIS
-		rdr_lvl1_ch7_schema = '''
-			CREATE TABLE IF NOT EXISTS RDR_LVL1_CH7 (
-			id INTEGER PRIMARY KEY,
-			day INTEGER,
-			month INTEGER,
-			year INTEGER,
-			hour INTEGER,
-			minute INTEGER,
-			second INTEGER,
-			sundist REAL,
-			sunlat REAL,
-			sunlon REAL,
-			radiance REAL,
-			tb REAL,
-			clat REAL,
-			clon REAL,
-			cemis REAL,
-			csunzen REAL,
-			csunazi REAL,
-			cloctime REAL
-			);
-		'''
+			# Creating the table schema based on the RDR SIS
+			rdr_lvl1_ch7_schema = '''
+				CREATE TABLE IF NOT EXISTS RDR_LVL1_CH7 (
+				id INTEGER PRIMARY KEY,
+				day INTEGER,
+				month INTEGER,
+				year INTEGER,
+				hour INTEGER,
+				minute INTEGER,
+				second INTEGER,
+				sundist REAL,
+				sunlat REAL,
+				sunlon REAL,
+				radiance REAL,
+				tb REAL,
+				clat REAL,
+				clon REAL,
+				cemis REAL,
+				csunzen REAL,
+				csunazi REAL,
+				cloctime REAL
+				);
+			'''
 
-		# Execute the SQL to define the table schema
-		db_cursor.execute(rdr_lvl1_ch7_schema)
+			# Execute the SQL to define the table schema
+			db_cursor.execute(rdr_lvl1_ch7_schema)
 
-		# Turn off PRAGMA synch to speed up writing
-		# Note: this has a higher risk of data being corrupted
-		# but hopefully since this database should only need
-		# to be populated once, this is an okay risk.
-		db_cursor.execute("PRAGMA synchronous = OFF;")
+			# Turn off PRAGMA synch to speed up writing
+			# Note: this has a higher risk of data being corrupted
+			# but hopefully since this database should only need
+			# to be populated once, this is an okay risk.
+			db_cursor.execute("PRAGMA synchronous = OFF;")
 
-		# Then commit and close the connection
-		db_connection.commit()
-		db_connection.close()
+			# Then commit and close the connection
+			db_connection.commit()
+
+		except sqlite3.Error as e:
+			logging.error("Unable to create database, will exit: " + repr(e))
+			sys.exit(1)
+
+		finally:
+			if db_connection:
+				db_connection.close()
 
 
 	def __getTab(self, dest_dir, src_url):
@@ -310,24 +331,58 @@ class DivinerTools(object):
 		@param local_dir The local directory to save to
 		@param zip_url The url to the target .zip file
 		'''
+		ok = True
 
 		# Verify the destination directory exists
-		os.makedirs(dest_dir, exist_ok=True)
+		try:
+			os.makedirs(dest_dir, exist_ok=True)
+
+		except Exception as e:
+			logging.error("Unable to create or access directory: " + repr(dest_dir) + " Error message: " + repr(e))
+			ok = False
 
 		# Extract filename
 		filename = os.path.join(dest_dir, src_url.split("/")[-1])
 
 		# Download the zip file
-		response = requests.get(src_url)
-		with open(filename, 'wb') as file:
-			file.write(response.content)
+		try:
+			response = requests.get(src_url)
+
+			# Check status of request
+			response.raise_for_status()
+		
+			with open(filename, 'wb') as file:
+				file.write(response.content)
+
+		# Something goes wrong with http request
+		except requests.exceptions.RequestException as e:
+			logging.error("Unable to make request to url: " + repr(src_url) + " Error message: " + repr(e))
+			ok = False
+
+		# Something goes wrong with writing to file
+		except IOError as e:
+			logging.error("Unable to write to file: " + repr(filename) + " Error message: " + repr(e))
+			ok = False
 
 		# Extract the contents of the zip file
-		with ZipFile(filename, 'r') as zip_ref:
-			zip_ref.extractall(dest_dir)
+		try:
+			with ZipFile(filename, 'r') as zip_ref:
+				zip_ref.extractall(dest_dir)
+
+		except BadZipFile as e:
+			logging.error("Unable to open unzip file: " + repr(filename) + " Error message: " + repr(e))
+			ok = False
 
 		# Delete original .zip file
-		os.remove(filename)
+		try:
+			os.remove(filename)
+			
+		except Exception as e:
+			logging.error("Unable to delete zip file: " + repr(filename) + " Error message: " + repr(e))
+			ok = False
+
+		return ok
+
 
 	@public
 	def appendToFile(self, txt_filepath, data):
@@ -339,13 +394,19 @@ class DivinerTools(object):
 		'''
 		# Appending a string
 		if isinstance(data, str):
-			with open(txt_filepath, 'a') as file:
-				file.write(data + '\n')
+			try:
+				with open(txt_filepath, 'a') as file:
+					file.write(data + '\n')
+			except IOError as e:
+				logging.error("Unable to write to file: " + repr(txt_filepath) + " Error message: " + repr(e))
 
 		# Appending a list of strings
 		elif isinstance(data, list):
-			with open(txt_filepath, 'a') as file:
-				file.writelines('\n'.join(data))
+			try:
+				with open(txt_filepath, 'a') as file:
+					file.writelines('\n'.join(data))
+			except IOError as e:
+				logging.error("Unable to write to file: " + repr(txt_filepath) + " Error message: " + repr(e))
 
 # * * * * * * * * * * * * * * * * * * * * * * * * *
 # CONVERSION/MANIPULATION
@@ -360,17 +421,20 @@ class DivinerTools(object):
 		
 		@return A list of strings
 		'''
-
 		lines = []
 
-		# Open and read .TAB file starting at line 5
-		with open(src_tab, 'r') as file:
-			for _ in range(4):
-				next(file)
+		try:
+			# Open and read .TAB file starting at line 5
+			with open(src_tab, 'r') as file:
+				for _ in range(4):
+					next(file)
 
-			# Read each line and remove carriage character
-			for line in file:
-				lines.append(line.rstrip('^M'))
+				# Read each line and remove carriage character
+				for line in file:
+					lines.append(line.rstrip('^M'))
+
+		except IOError as e:
+			logging.error("Unable to read file: " + repr(src_tab) + " Error message: " + repr(e))
 
 		return lines
 	
@@ -382,11 +446,17 @@ class DivinerTools(object):
 
 		@param txt_filepath The path to the target text file
 		'''
-		with open(txt_filepath, 'r') as file:
-			lines = [line.strip() for line in file.readlines()]
+		try:
+			with open(txt_filepath, 'r') as file:
+				lines = [line.strip() for line in file.readlines()]
+			
+			return lines
 
-		return lines
-	
+		except IOError as e:
+			logging.error("Unable to open file: " + repr(txt_filepath) + " Error message: " + repr(e))
+
+			# Return an empty list
+			return []
 
 	@public
 	def batch(self, input_list, batch_size):
@@ -400,6 +470,7 @@ class DivinerTools(object):
 		'''
 		return [input_list[i:i + batch_size] for i in range(0, len(input_list), batch_size)]
 	
+
 	def __dateStringToInt(self, date_string):
 		'''
 		@brief Converts a date in string format to integers
@@ -411,6 +482,7 @@ class DivinerTools(object):
 		date_dt = datetime.strptime(date_string, "%d-%b-%Y")
 
 		return [date_dt.day, date_dt.month, date_dt.year % 100]
+
 
 	def __timeStringToInt(self, time_string):
 		'''
@@ -438,19 +510,29 @@ class DivinerTools(object):
 
 		@return A list of sub-links on the page
 		'''
+		try:
+			# Send a GET request to get page elements
+			response = requests.get(parent_url)
+			
+			# Check request status
+			response.raise_for_status()
+			
+			soup = BeautifulSoup(response.text, "html.parser")
 
-		# Send a GET request to get page elements
-		response = requests.get(parent_url)
-		soup = BeautifulSoup(response.text, "html.parser")
+			# Extract sub-urls
+			sub_urls = [urljoin(parent_url, link.get("href")) for link in soup.find_all("a", href=True)]
 
-		# Extract sub-urls
-		sub_urls = [urljoin(parent_url, link.get("href")) for link in soup.find_all("a", href=True)]
+			# Filter the list using regex if a pattern is specified
+			if pattern:
+				sub_urls = [url for url in sub_urls if re.compile(pattern).match(url)]
 
-		# Filter the list using regex if a pattern is specified
-		if pattern:
-			sub_urls = [url for url in sub_urls if re.compile(pattern).match(url)]
+			return sub_urls
 
-		return sub_urls
+		except requests.exceptions.RequestException as e:
+			logging.error("Unable to access url: " + repr(parent_url) + " Error message: " + repr(e))
+
+			# Return empty list
+			return []
 	
 
 	def __crawl(self, input_urls, pattern=None):
@@ -590,34 +672,44 @@ class DivinerTools(object):
 
 		@param url The url of the .zip file containing RDR data
 		'''
-		self.__getTab(self.__tmpDir, url)
+		tabok = self.__getTab(self.__tmpDir, url)
 
-		# Synth filename from url
-		file = re.search(r'(\d{12}_rdr)', url)[0].upper()
-		filename = os.path.join(self.__tmpDir,  file + ".TAB")
+		if (tabok):
+			# Synth filename from url
+			file = re.search(r'(\d{12}_rdr)', url)[0].upper()
+			filename = os.path.join(self.__tmpDir,  file + ".TAB")
 
-		# Read lines from .TAB file
-		lines = self.tabToLines(filename)
+			# Read lines from .TAB file
+			lines = self.tabToLines(filename)
 
-		# Process each line and add to database it qualifies
-		# Note: if we use multithreading, sqlite3 doesn't
-		# support concurrent writes, so a job monitor is needed
-		count = 0
+			# Process each line and add to database it qualifies
+			# Note: if we use multithreading, sqlite3 doesn't
+			# support concurrent writes, so a job monitor is needed
+			count = 0
     
-		for line in lines:
-			count += self.__processLine(line)
+			for line in lines:
+				count += self.__processLine(line)
 
-		# Since there are files that contain no target 
-		# data, we want to keep track of the ones that do
-		# so that in the future we don't have to download
-		# every RDR file if we need to redo preprocessing
-		if (count > 0):
-			data = url + " " + repr(count)
-			self.appendToFile(self.__usefulTabsFilepath, data)
+			# Since there are files that contain no target 
+			# data, we want to keep track of the ones that do
+			# so that in the future we don't have to download
+			# every RDR file if we need to redo preprocessing
+			if (count > 0):
+				data = url + " " + repr(count)
+				self.appendToFile(self.__usefulTabsFilepath, data)
+				logging.info("Added " + repr(count) + " files to job queue")
 
-		# We no longer need the .TAB data and will delete
-		# it to preserve storage space
-		os.remove(filename)
+			# We no longer need the .TAB data and will delete
+			# it to preserve storage space
+			try:
+				os.remove(filename)
+
+			except Exception as e:
+				logging.error("Unable to delete TAB file: " + repr(filename) + " Error message: " + repr(e))
+
+		else:
+			# Add the filename to the bad files text
+			self.appendToFile(self.__badFilepath, filename)
 
 
 	@public
