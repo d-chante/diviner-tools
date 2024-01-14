@@ -7,6 +7,9 @@ tmp_directory: "/esthar/diviner_data/tmp"
 # Filepath to the useful tab files list
 useful_tabs_filepath: "/esthar/diviner_data/txt_files/useful_tabs.txt"
 
+# Filepath to bad files list
+bad_filepath: "/esthar/diviner_data/bad_files/bad_files.txt"
+
 # Directory to logs
 log_directory: "/esthar/diviner_data/txt_files/logs"
 
