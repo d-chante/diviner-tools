@@ -45,7 +45,7 @@ JOB_TEMPLATE = '''
 	'''
 
 
-class DivinerTools(object):
+class DivinerPreprocessor(object):
 
 	def __init__(self, cfg_filepath, label=""):
 
@@ -96,9 +96,12 @@ class DivinerTools(object):
 		# Create database if it doesn't exist yet
 		self.__createDatabase()
 
-# * * * * * * * * * * * * * * * * * * * * * * * * *
-# JOB QUEUE
-# * * * * * * * * * * * * * * * * * * * * * * * * *
+		# Create utils object
+		self.ut = Utils()
+
+	# * * * * * * * * * * * * * * * * * * * * * * * * *
+	# JOB QUEUE
+	# * * * * * * * * * * * * * * * * * * * * * * * * *
 
 	def __jobMonitor(self):
 		'''
@@ -192,9 +195,9 @@ class DivinerTools(object):
 			if db_connection:
 				db_connection.close()
 
-# * * * * * * * * * * * * * * * * * * * * * * * * *
-# TIMING AND LOGGING
-# * * * * * * * * * * * * * * * * * * * * * * * * *
+	# * * * * * * * * * * * * * * * * * * * * * * * * *
+	# TIMING AND LOGGING
+	# * * * * * * * * * * * * * * * * * * * * * * * * *
 			
 	def __timeStamp(self):
 		'''
@@ -262,9 +265,9 @@ class DivinerTools(object):
 
 		logging.info("Logging started: " + repr(log_filepath))
 
-# * * * * * * * * * * * * * * * * * * * * * * * * *
-# FILE/DIRECTORY MANAGEMENT
-# * * * * * * * * * * * * * * * * * * * * * * * * *
+	# * * * * * * * * * * * * * * * * * * * * * * * * *
+	# FILE/DIRECTORY MANAGEMENT
+	# * * * * * * * * * * * * * * * * * * * * * * * * *
 
 	def __createDir(self, data_dir):
 		'''
@@ -408,124 +411,176 @@ class DivinerTools(object):
 			ok = False
 
 		return ok
+	
+	# * * * * * * * * * * * * * * * * * * * * * * * * *
+	# PREPROCESSING
+	# * * * * * * * * * * * * * * * * * * * * * * * * *
 
-
-	@public
-	def appendToFile(self, txt_filepath, data):
+	def __checkParams(self, data):
 		'''
-		@brief Appends data to target text file
+		@brief Checks if an RDR table entry matches filter criteria
 
-		@param txt_filepath The text file path
-		@param data The data to be appended
+		@param data RDR table entry
+
+		@return A boolean on whether or not the data meets criteria
 		'''
-		# Appending a string
-		if isinstance(data, str):
+
+		# Check the data conforms to the params:
+		#    af == 110
+		#    c == 7
+		#    cemis < 10
+		#    qca == 0
+		#    qge == 12
+		#    qmi == 0
+		if (data[FIELD.AF.value] == "110") and (data[FIELD.C.value] == "7") and \
+			(float(data[FIELD.CEMIS.value]) < 10.0) and (data[FIELD.QCA.value] == "000") and \
+			(data[FIELD.QGE.value] == "012") and (data[FIELD.QMI.value] == "000"):
+	
+			return True
+	
+		else:
+			return False
+
+
+	def __processLine(self, data):
+		'''
+		@brief Checks if line is valid before adding to job queue
+
+		@param data The text line containing the data entry
+		@param 0 or 1 depending if the data was added or not
+		'''
+	
+		# Split the line    
+		values = data.strip().split(',')
+
+		# Remove any whitespaces and extra quotations from the values
+		values = [val.strip().strip('"') for val in values]
+
+		# Check that the data conforms to desired params
+		dataok = self.__checkParams(values)
+	
+		if(dataok):
 			try:
-				with open(txt_filepath, 'a') as file:
-					file.write(data + '\n')
-			except IOError as e:
-				logging.error("Unable to write to file: " + repr(txt_filepath) + " Error message: " + repr(e))
+				# Convert date string to integers
+				dd, mm, yy = self.ut.dateStringToInt(values[FIELD.DATE.value])
 
-		# Appending a list of strings
-		elif isinstance(data, list):
-			try:
-				with open(txt_filepath, 'a') as file:
-					file.writelines('\n'.join(data))
-			except IOError as e:
-				logging.error("Unable to write to file: " + repr(txt_filepath) + " Error message: " + repr(e))
+				# Convert time string to integers
+				hr, min, sec, _ = self.ut.timeStringToInt(values[FIELD.UTC.value]) 
 
-# * * * * * * * * * * * * * * * * * * * * * * * * *
-# CONVERSION/MANIPULATION
-# * * * * * * * * * * * * * * * * * * * * * * * * *
+				# The specific values to be inserted
+				job_values = [
+					dd, mm, yy, hr, min, sec, float(values[FIELD.SUNDIST.value]), float(values[FIELD.SUNLAT.value]),
+					float(values[FIELD.SUNLON.value]), float(values[FIELD.RADIANCE.value]), float(values[FIELD.TB.value]), 
+					float(values[FIELD.CLAT.value]), float(values[FIELD.CLON.value]), float(values[FIELD.CEMIS.value]), 
+					float(values[FIELD.CSUNZEN.value]), float(values[FIELD.CSUNAZI.value]), float(values[FIELD.CLOCTIME.value])]
 
-	@public
-	def tabToLines(self, src_tab):
-		'''
-		@brief Parses .TAB file into lines
+				# Adding job to job queue
+				self.job_queue.put(job_values)
+				
+				return 1
 
-		@param src_tab Source .TAB file
-		
-		@return A list of strings
-		'''
-		lines = []
-
-		try:
-			# Open and read .TAB file starting at line 5
-			with open(src_tab, 'r') as file:
-				for _ in range(4):
-					next(file)
-
-				# Read each line and remove carriage character
-				for line in file:
-					lines.append(line.rstrip('^M'))
-
-		except IOError as e:
-			logging.error("Unable to read file: " + repr(src_tab) + " Error message: " + repr(e))
-
-		return lines
+			except Exception as e:
+				logging.error("Error adding SQL job to queue: ", e)
+				return 0
+		else:
+			return 0
 	
 
+	def __processor(self, url):
+		'''
+		@brief	Preprocesses RDR data tables all the way from download
+			to writing to the database
+
+		@param url The url of the .zip file containing RDR data
+		'''
+		tabok = self.__getTab(self.__tmpDir, url)
+
+		if (tabok):
+			# Synth filename from url
+			file = re.search(r'(\d{12}_rdr)', url)[0].upper()
+			filename = os.path.join(self.__tmpDir,  file + ".TAB")
+
+			# Read lines from .TAB file
+			lines = self.ut.tabToLines(filename)
+
+			# Process each line and add to database it qualifies
+			# Note: if we use multithreading, sqlite3 doesn't
+			# support concurrent writes, so a job monitor is needed
+			count = 0
+    
+			for line in lines:
+				count += self.__processLine(line)
+
+			# Since there are files that contain no target 
+			# data, we want to keep track of the ones that do
+			# so that in the future we don't have to download
+			# every RDR file if we need to redo preprocessing
+			if (count > 0):
+				data = url + " " + repr(count)
+				self.ut.appendToFile(
+					self.__usefulTabsDir + "/useful_tabs_" + self.__label + ".txt", data)
+				logging.info("Added " + repr(count) + " files to job queue")
+
+			# We no longer need the .TAB data and will delete
+			# it to preserve storage space
+			try:
+				os.remove(filename)
+
+			except Exception as e:
+				logging.error("Unable to delete TAB file: " + repr(filename) + " Error message: " + repr(e))
+
+		else:
+			# Add the filename to the bad files text
+			self.ut.appendToFile(
+				self.__badFilesDir + "/bad_files_" + self.__label + ".txt", filename)
+
+
 	@public
-	def txtToList(self, txt_filepath):
+	def preprocess(self, data):
 		'''
-		@brief Generates a list from a textfile
+		@brief Initiates the pre-processing loop
 
-		@param txt_filepath The path to the target text file
+		@param data A list of zip urls
 		'''
-		try:
-			with open(txt_filepath, 'r') as file:
-				lines = [line.strip() for line in file.readlines()]
-			
-			return lines
 
-		except IOError as e:
-			logging.error("Unable to open file: " + repr(txt_filepath) + " Error message: " + repr(e))
+		# Start timer if the timer option is selected
+		if (self.__useTimer):
+			start_t = self.__startTimer()
 
-			# Return an empty list
-			return []
-
-	@public
-	def batch(self, input_list, batch_size):
-		'''
-		@brief Splits a list into a list of lists of a specified size
-
-		@param input_list A list
-		@param batch_size The desired size of sub-lists
-
-		@return A list of lists
-		'''
-		return [input_list[i:i + batch_size] for i in range(0, len(input_list), batch_size)]
-	
-
-	def __dateStringToInt(self, date_string):
-		'''
-		@brief Converts a date in string format to integers
-
-		@param date_string A string representing a date in format "dd-mon-yyyy"
-
-		@return A list of integers representing a date in format [dd, mm, yy]
-		'''
-		date_dt = datetime.strptime(date_string, "%d-%b-%Y")
-
-		return [date_dt.day, date_dt.month, date_dt.year % 100]
-
-
-	def __timeStringToInt(self, time_string):
-		'''
-		@brief Converts a time string format to integers
-
-		@param time_string A string representing a time in format "HH:mm:ss.sss"
-
-		@return A list of integers representing a time in format [HH, mm, ss, sss]
-		'''
-		hh_mm_ss, sss = time_string.split('.')
-		hh, mm, ss = hh_mm_ss.split(':')
+		# Start the SQL job monitor 
+		self.__startJobMonitor()
 		
-		return [int(hh), int(mm), int(ss), int(sss)]
+		# Split data into batches
+		batched_data = self.ut.batch(data, self.__batchSize)
 
-# * * * * * * * * * * * * * * * * * * * * * * * * *
-# ZIP URLS
-# * * * * * * * * * * * * * * * * * * * * * * * * *
+		for n, batch in enumerate(batched_data, start=0):
+
+			logging.info("Processing batch " + repr(n+1) + " of " + repr(len(batched_data)) + " (" + self.__timeStamp() + ")")
+
+			# Start thread pool, should choose max workers carefully to not overrun memory
+			with concurrent.futures.ThreadPoolExecutor(max_workers=self.__maxWorkers) as executor:
+
+				#futures = [executor.submit(self.__processor, url) for url in batch]
+
+				# Wait for all futures to complete 
+				#results = [future.result() for future in concurrent.futures.as_completed(futures)]
+
+				# Wait for job queue to empty before starting next batch
+				self.__waitForJobQueueToEmpty()
+
+		# Stop the job monitor (the job monitor will wait for the queue to empty first)
+		self.__stopJobMonitor()
+
+		# End timer if the timer option is selected
+		if (self.__useTimer):
+			self.__stopTimer(start_t)
+
+
+class ZipCrawler(object):
+
+	def __init__(self):
+		pass
+
 		
 	def __getSubUrls(self, parent_url, pattern=None):
 		'''
@@ -617,166 +672,122 @@ class DivinerTools(object):
 
 		return zip_urls
 	
-# * * * * * * * * * * * * * * * * * * * * * * * * *
-# PREPROCESSING
-# * * * * * * * * * * * * * * * * * * * * * * * * *
-
-	def __checkParams(self, data):
-		'''
-		@brief Checks if an RDR table entry matches filter criteria
-
-		@param data RDR table entry
-
-		@return A boolean on whether or not the data meets criteria
-		'''
-
-		# Check the data conforms to the params:
-		#    af == 110
-		#    c == 7
-		#    cemis < 10
-		#    qca == 0
-		#    qge == 12
-		#    qmi == 0
-		if (data[FIELD.AF.value] == "110") and (data[FIELD.C.value] == "7") and \
-			(float(data[FIELD.CEMIS.value]) < 10.0) and (data[FIELD.QCA.value] == "000") and \
-			(data[FIELD.QGE.value] == "012") and (data[FIELD.QMI.value] == "000"):
 	
-			return True
-	
-		else:
-			return False
+class Utils(object):
 
-
-	def __processLine(self, data):
-		'''
-		@brief Checks if line is valid before adding to job queue
-
-		@param data The text line containing the data entry
-		@param 0 or 1 depending if the data was added or not
-		'''
-	
-		# Split the line    
-		values = data.strip().split(',')
-
-		# Remove any whitespaces and extra quotations from the values
-		values = [val.strip().strip('"') for val in values]
-
-		# Check that the data conforms to desired params
-		dataok = self.__checkParams(values)
-	
-		if(dataok):
-			try:
-				# Convert date string to integers
-				dd, mm, yy = self.__dateStringToInt(values[FIELD.DATE.value])
-
-				# Convert time string to integers
-				hr, min, sec, _ = self.__timeStringToInt(values[FIELD.UTC.value]) 
-
-				# The specific values to be inserted
-				job_values = [
-					dd, mm, yy, hr, min, sec, float(values[FIELD.SUNDIST.value]), float(values[FIELD.SUNLAT.value]),
-					float(values[FIELD.SUNLON.value]), float(values[FIELD.RADIANCE.value]), float(values[FIELD.TB.value]), 
-					float(values[FIELD.CLAT.value]), float(values[FIELD.CLON.value]), float(values[FIELD.CEMIS.value]), 
-					float(values[FIELD.CSUNZEN.value]), float(values[FIELD.CSUNAZI.value]), float(values[FIELD.CLOCTIME.value])]
-
-				# Adding job to job queue
-				self.job_queue.put(job_values)
-				
-				return 1
-
-			except Exception as e:
-				logging.error("Error adding SQL job to queue: ", e)
-				return 0
-		else:
-			return 0
-	
-
-	def __processor(self, url):
-		'''
-		@brief	Preprocesses RDR data tables all the way from download
-				to writing to the database
-
-		@param url The url of the .zip file containing RDR data
-		'''
-		tabok = self.__getTab(self.__tmpDir, url)
-
-		if (tabok):
-			# Synth filename from url
-			file = re.search(r'(\d{12}_rdr)', url)[0].upper()
-			filename = os.path.join(self.__tmpDir,  file + ".TAB")
-
-			# Read lines from .TAB file
-			lines = self.tabToLines(filename)
-
-			# Process each line and add to database it qualifies
-			# Note: if we use multithreading, sqlite3 doesn't
-			# support concurrent writes, so a job monitor is needed
-			count = 0
-    
-			for line in lines:
-				count += self.__processLine(line)
-
-			# Since there are files that contain no target 
-			# data, we want to keep track of the ones that do
-			# so that in the future we don't have to download
-			# every RDR file if we need to redo preprocessing
-			if (count > 0):
-				data = url + " " + repr(count)
-				self.appendToFile(
-					self.__usefulTabsDir + "/useful_tabs_" + self.__label + ".txt", data)
-				logging.info("Added " + repr(count) + " files to job queue")
-
-			# We no longer need the .TAB data and will delete
-			# it to preserve storage space
-			try:
-				os.remove(filename)
-
-			except Exception as e:
-				logging.error("Unable to delete TAB file: " + repr(filename) + " Error message: " + repr(e))
-
-		else:
-			# Add the filename to the bad files text
-			self.appendToFile(
-				self.__badFilesDir + "/bad_files_" + self.__label + ".txt", filename)
+	def __init__(self):
+		pass
 
 
 	@public
-	def preprocess(self, data):
+	def tabToLines(self, src_tab):
 		'''
-		@brief Initiates the pre-processing loop
+		@brief Parses .TAB file into lines
 
-		@param data A list of zip urls
+		@param src_tab Source .TAB file
+		
+		@return A list of strings
 		'''
+		lines = []
 
-		# Start timer if the timer option is selected
-		if (self.__useTimer):
-			start_t = self.__startTimer()
+		try:
+			# Open and read .TAB file starting at line 5
+			with open(src_tab, 'r') as file:
+				for _ in range(4):
+					next(file)
 
-		# Start the SQL job monitor 
-		self.__startJobMonitor()
+				# Read each line and remove carriage character
+				for line in file:
+					lines.append(line.rstrip('^M'))
+
+		except IOError as e:
+			logging.error("Unable to read file: " + repr(src_tab) + " Error message: " + repr(e))
+
+		return lines
+	
+
+	@public
+	def txtToList(self, txt_filepath):
+		'''
+		@brief Generates a list from a textfile
+
+		@param txt_filepath The path to the target text file
+		'''
+		try:
+			with open(txt_filepath, 'r') as file:
+				lines = [line.strip() for line in file.readlines()]
+			
+			return lines
+
+		except IOError as e:
+			logging.error("Unable to open file: " + repr(txt_filepath) + " Error message: " + repr(e))
+
+			# Return an empty list
+			return []
 		
-		# Split data into batches
-		batched_data = self.batch(data, self.__batchSize)
 
-		for n, batch in enumerate(batched_data, start=0):
+	@public
+	def appendToFile(self, txt_filepath, data):
+		'''
+		@brief Appends data to target text file
 
-			logging.info("Processing batch " + repr(n+1) + " of " + repr(len(batched_data)) + " (" + self.__timeStamp() + ")")
+		@param txt_filepath The text file path
+		@param data The data to be appended
+		'''
+		# Appending a string
+		if isinstance(data, str):
+			try:
+				with open(txt_filepath, 'a') as file:
+					file.write(data + '\n')
+			except IOError as e:
+				logging.error("Unable to write to file: " + repr(txt_filepath) + " Error message: " + repr(e))
 
-			# Start thread pool, should choose max workers carefully to not overrun memory
-			with concurrent.futures.ThreadPoolExecutor(max_workers=self.__maxWorkers) as executor:
+		# Appending a list of strings
+		elif isinstance(data, list):
+			try:
+				with open(txt_filepath, 'a') as file:
+					file.writelines('\n'.join(data))
+			except IOError as e:
+				logging.error("Unable to write to file: " + repr(txt_filepath) + " Error message: " + repr(e))
 
-				futures = [executor.submit(self.__processor, url) for url in batch]
 
-				# Wait for all futures to complete 
-				results = [future.result() for future in concurrent.futures.as_completed(futures)]
+	@public
+	def batch(self, input_list, batch_size):
+		'''
+		@brief Splits a list into a list of lists of a specified size
 
-				# Wait for job queue to empty before starting next batch
-				self.__waitForJobQueueToEmpty()
+		@param input_list A list
+		@param batch_size The desired size of sub-lists
 
-		# Stop the job monitor (the job monitor will wait for the queue to empty first)
-		self.__stopJobMonitor()
+		@return A list of lists
+		'''
+		return [input_list[i:i + batch_size] for i in range(0, len(input_list), batch_size)]
+	
 
-		# End timer if the timer option is selected
-		if (self.__useTimer):
-			self.__stopTimer(start_t)
+	@public
+	def dateStringToInt(self, date_string):
+		'''
+		@brief Converts a date in string format to integers
+
+		@param date_string A string representing a date in format "dd-mon-yyyy"
+
+		@return A list of integers representing a date in format [dd, mm, yy]
+		'''
+		date_dt = datetime.strptime(date_string, "%d-%b-%Y")
+
+		return [date_dt.day, date_dt.month, date_dt.year % 100]
+
+
+	@public
+	def timeStringToInt(self, time_string):
+		'''
+		@brief Converts a time string format to integers
+
+		@param time_string A string representing a time in format "HH:mm:ss.sss"
+
+		@return A list of integers representing a time in format [HH, mm, ss, sss]
+		'''
+		hh_mm_ss, sss = time_string.split('.')
+		hh, mm, ss = hh_mm_ss.split(':')
 		
+		return [int(hh), int(mm), int(ss), int(sss)]
