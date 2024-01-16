@@ -560,10 +560,10 @@ class DivinerPreprocessor(object):
 			# Start thread pool, should choose max workers carefully to not overrun memory
 			with concurrent.futures.ThreadPoolExecutor(max_workers=self.__maxWorkers) as executor:
 
-				#futures = [executor.submit(self.__processor, url) for url in batch]
+				futures = [executor.submit(self.__processor, url) for url in batch]
 
 				# Wait for all futures to complete 
-				#results = [future.result() for future in concurrent.futures.as_completed(futures)]
+				results = [future.result() for future in concurrent.futures.as_completed(futures)]
 
 				# Wait for job queue to empty before starting next batch
 				self.__waitForJobQueueToEmpty()
