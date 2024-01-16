@@ -4,7 +4,6 @@
 
 @brief Tools to help pre-process diviner data
 '''
-
 from bs4 import BeautifulSoup
 import concurrent.futures
 from datetime import datetime, timedelta
@@ -48,25 +47,28 @@ JOB_TEMPLATE = '''
 
 class DivinerTools(object):
 
-	def __init__(self, cfg_filepath):
+	def __init__(self, cfg_filepath, label=""):
+
+		# Job label
+		self.__label = label
 
 		# Extract configs
 		with open(cfg_filepath, 'r') as file:
 			self.__cfg = yaml.safe_load(file)
 
-		# Filepath to database
-		self.__dbFilepath = self.__cfg['database_filepath']
+		# Pathway to database directory
+		self.__dbDir = self.__cfg['database_directory']
 
 		# Pathway to tmp directory
 		self.__tmpDir = self.__cfg['tmp_directory']
 
-		# Filepath to the useful tab files list
-		self.__usefulTabsFilepath = self.__cfg['useful_tabs_filepath']
+		# Pathway to useful tabs directory
+		self.__usefulTabsDir= self.__cfg['useful_tabs_directory']
 
-		# Filepath to bad files list
-		self.__badFilepath = self.__cfg['bad_filepath']
+		# Pathway to bad files directory
+		self.__badFilesDir = self.__cfg['bad_files_directory']
 
-		# Directory to logs
+		# Pathway to logs directory
 		self.__logDir = self.__cfg['log_directory']
 
 		# Batch size for number of .TAB files processed per iteration
@@ -82,7 +84,10 @@ class DivinerTools(object):
 		self.__useTimer = self.__cfg['use_timer'] 
 
 		# Create directories if they don't exist
+		self.__createDir(self.__dbDir)
 		self.__createDir(self.__tmpDir)
+		self.__createDir(self.__usefulTabsDir)
+		self.__createDir(self.__badFilesDir)
 		self.__createDir(self.__logDir)
 
 		# Configure logger
@@ -98,7 +103,7 @@ class DivinerTools(object):
 	def __jobMonitor(self):
 		'''
 		@brief 	Monitors a job queue for data that needs to be written
-				to a database.
+			to a database.
 		'''
 
 		# To speed up writing, we can process
@@ -146,7 +151,7 @@ class DivinerTools(object):
 	def __stopJobMonitor(self):
 		'''
 		@brief	Waits until all SQL jobs are complete and then issues
-				a stop command that will stop the job monitor thread
+			a stop command that will stop the job monitor thread
 		'''
 
 		# Wait until all jobs are completed
@@ -200,6 +205,7 @@ class DivinerTools(object):
 
 		return curr_t
 	
+	
 	def __startTimer(self):
 		'''
 		@brief Logs a start time
@@ -216,11 +222,10 @@ class DivinerTools(object):
 	def __stopTimer(self, start_time):
 		'''
 		@brief	Determines elapsed time given a start time and prints
-				in human-readable format
+			in human-readable format
 
 		@param start_time The start time
 		'''
-
 		end_t = datetime.now(pytz.timezone('America/Montreal'))
 		logging.info("End time: " + repr(end_t.strftime('%Y-%m-%d %H:%M')))
 
@@ -244,8 +249,8 @@ class DivinerTools(object):
 		'''
 		@brief Configures logger module
 		'''
-		log_filepath = "{0}/diviner_tools_log_{1}.log".format(
-			self.__logDir, datetime.now().strftime("%Y-%m-%d_%H-%M"))
+		log_filepath = "{0}/diviner_tools_log_{1}_{2}.log".format(
+			self.__logDir, self.__label, datetime.now().strftime("%Y-%m-%d_%H-%M"))
 
 		logging.basicConfig(
 			level=logging.DEBUG,
@@ -274,14 +279,25 @@ class DivinerTools(object):
 		except Exception as e:
 			logging.error("Unable to create directory: " + repr(data_dir) + " Error message: " + repr(e))
 
+	def __getDatabaseFilepath(self):
+		'''
+		@brief Returns database filepath
+
+		@return A string to the database file
+		'''
+		return os.path.join(
+			self.__dbDir, "diviner_data_" + self.__label + ".db")
+	
+
 	def __createDatabase(self):
 		'''
 		@brief Create database if it doesn't exist
 		'''
+
 		db_connection = None
 
 		try:
-			db_connection = sqlite3.connect(self.__dbFilepath)
+			db_connection = sqlite3.connect(self.__getDatabaseFilepath())
 
 			# Creating a cursor object allows us to interact
 			# with the database object through SQL commands
@@ -335,8 +351,8 @@ class DivinerTools(object):
 	def __getTab(self, dest_dir, src_url):
 		'''
 		@brief	Given a link to a .zip file, this function will
-				download, unpack the .zip file, then delete
-				the original .zip file to minimize storage used
+			download, unpack the .zip file, then delete
+			the original .zip file to minimize storage used
 	
 		@param local_dir The local directory to save to
 		@param zip_url The url to the target .zip file
@@ -706,7 +722,8 @@ class DivinerTools(object):
 			# every RDR file if we need to redo preprocessing
 			if (count > 0):
 				data = url + " " + repr(count)
-				self.appendToFile(self.__usefulTabsFilepath, data)
+				self.appendToFile(
+					self.__usefulTabsDir + "/useful_tabs_" + self.__label + ".txt", data)
 				logging.info("Added " + repr(count) + " files to job queue")
 
 			# We no longer need the .TAB data and will delete
@@ -719,7 +736,8 @@ class DivinerTools(object):
 
 		else:
 			# Add the filename to the bad files text
-			self.appendToFile(self.__badFilepath, filename)
+			self.appendToFile(
+				self.__badFilesDir + "/bad_files_" + self.__label + ".txt", filename)
 
 
 	@public
