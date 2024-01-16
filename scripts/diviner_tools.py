@@ -18,7 +18,6 @@ import re
 import sqlite3
 import sys
 import threading
-from tqdm import tqdm
 import time
 import queue
 from urllib.parse import urljoin
@@ -192,6 +191,15 @@ class DivinerTools(object):
 # TIMING AND LOGGING
 # * * * * * * * * * * * * * * * * * * * * * * * * *
 			
+	def __timeStamp(self):
+		'''
+		@brief Returns current time as a string
+		'''
+		curr_t = datetime.now(pytz.timezone('America/Montreal'))
+		curr_t = curr_t.strftime('%Y-%m-%d %H:%M')
+
+		return curr_t
+	
 	def __startTimer(self):
 		'''
 		@brief Logs a start time
@@ -205,7 +213,7 @@ class DivinerTools(object):
 		return start_t
 
 
-	def __timeElapsed(self, start_time):
+	def __stopTimer(self, start_time):
 		'''
 		@brief	Determines elapsed time given a start time and prints
 				in human-readable format
@@ -270,6 +278,8 @@ class DivinerTools(object):
 		'''
 		@brief Create database if it doesn't exist
 		'''
+		db_connection = None
+
 		try:
 			db_connection = sqlite3.connect(self.__dbFilepath)
 
@@ -730,7 +740,9 @@ class DivinerTools(object):
 		# Split data into batches
 		batched_data = self.batch(data, self.__batchSize)
 
-		for n, batch in tqdm(enumerate(batched_data, start=0), total=len(batched_data)):
+		for n, batch in enumerate(batched_data, start=0):
+
+			logging.info("Processing batch " + repr(n+1) + " of " + repr(len(batched_data)) + " (" + self.__timeStamp() + ")")
 
 			# Start thread pool, should choose max workers carefully to not overrun memory
 			with concurrent.futures.ThreadPoolExecutor(max_workers=self.__maxWorkers) as executor:
@@ -748,5 +760,5 @@ class DivinerTools(object):
 
 		# End timer if the timer option is selected
 		if (self.__useTimer):
-			self.__timeElapsed(start_t)
+			self.__stopTimer(start_t)
 		
