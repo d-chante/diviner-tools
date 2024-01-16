@@ -32,7 +32,7 @@ def main():
 	of the Diviner Tools object, it will create the data directory and database if they don't 
 	already exist.
 	'''
-	dt = DivinerTools(CFG_FILEPATH)
+	dt = DivinerTools(CFG_FILEPATH, "job_" + repr(BATCH_ID))
 
 	'''
 	Preprocessing will involve:

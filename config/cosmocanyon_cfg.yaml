@@ -1,26 +1,26 @@
-# Filepath to the target database
-database_filepath: "/esthar/diviner_data/database/diviner_data.db"
+# Pathway to database directory
+database_directory: "/esthar/diviner_data/database"
 
 # Pathway to the tmp directory
 tmp_directory: "/esthar/diviner_data/tmp"
 
-# Filepath to the useful tab files list
-useful_tabs_filepath: "/esthar/diviner_data/txt_files/useful_tabs.txt"
+# Pathway to useful tabs directory
+useful_tabs_directory: "/esthar/diviner_data/txt_files/useful_tabs"
 
-# Filepath to bad files list
-bad_filepath: "/esthar/diviner_data/bad_files/bad_files.txt"
+# Pathway to bad directory
+bad_files_directory: "/esthar/diviner_data/txt_files/bad_files"
 
-# Directory to logs
+# Pathway to logs directory
 log_directory: "/esthar/diviner_data/txt_files/logs"
 
 # Batch size of number of .TAB files processed per iteration
-batch_size: 20
+batch_size: 32
 
 # Max transaction size for SQL queries
 transaction_size: 100000
 
 # Max number of thread workers
-max_workers: 20
+max_workers: 32
 
 # Flag to indicate whether or not to use timer
 use_timer: true 
