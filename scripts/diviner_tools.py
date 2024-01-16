@@ -179,8 +179,10 @@ class DivinerPreprocessor(object):
 		
 		@param jobs_chunk A list containing a chunk of jobs
 		'''
+		db_connection = None
+
 		try:
-			db_connection = sqlite3.connect(self.__dbFilepath)
+			db_connection = sqlite3.connect(self.__getDatabaseFilepath())
 			db_cursor = db_connection.cursor()
 
 			for job in jobs_chunk:
@@ -260,8 +262,7 @@ class DivinerPreprocessor(object):
 			format='%(asctime)s - %(levelname)s - %(message)s',
 			handlers=[
 				logging.FileHandler(log_filepath), 
-				logging.StreamHandler()]
-			)
+				logging.StreamHandler()])
 
 		logging.info("Logging started: " + repr(log_filepath))
 
@@ -281,6 +282,7 @@ class DivinerPreprocessor(object):
 		
 		except Exception as e:
 			logging.error("Unable to create directory: " + repr(data_dir) + " Error message: " + repr(e))
+
 
 	def __getDatabaseFilepath(self):
 		'''
@@ -302,8 +304,6 @@ class DivinerPreprocessor(object):
 		try:
 			db_connection = sqlite3.connect(self.__getDatabaseFilepath())
 
-			# Creating a cursor object allows us to interact
-			# with the database object through SQL commands
 			db_cursor = db_connection.cursor()
 
 			# Creating the table schema based on the RDR SIS
@@ -330,7 +330,6 @@ class DivinerPreprocessor(object):
 				);
 			'''
 
-			# Execute the SQL to define the table schema
 			db_cursor.execute(rdr_lvl1_ch7_schema)
 
 			# Turn off PRAGMA synch to speed up writing
@@ -339,7 +338,6 @@ class DivinerPreprocessor(object):
 			# to be populated once, this is an okay risk.
 			db_cursor.execute("PRAGMA synchronous = OFF;")
 
-			# Then commit and close the connection
 			db_connection.commit()
 
 		except sqlite3.Error as e:
