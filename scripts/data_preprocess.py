@@ -5,7 +5,7 @@
 @brief	This python script provides a procedure to pre-process channel 7 Diviner data 
 	collected between January 2010 - September 2023.
 '''
-from diviner_tools import DivinerTools
+from diviner_tools import DivinerPreprocessor, Utils
 import sys
 
 def main():
@@ -29,10 +29,11 @@ def main():
 
 	'''
 	diviner_tools is a custom library developed specifically for this task. Upon initialization 
-	of the Diviner Tools object, it will create the data directory and database if they don't 
+	of the Diviner Preprocessor object, it will create the data directory and database if they don't 
 	already exist.
 	'''
-	dt = DivinerTools(CFG_FILEPATH, "job_" + repr(BATCH_ID))
+	ut = Utils()
+	dp = DivinerPreprocessor(CFG_FILEPATH, "job_" + repr(BATCH_ID))
 
 	'''
 	Preprocessing will involve:
@@ -48,13 +49,13 @@ def main():
 	Since there is a lot of data to process which may take a long period of time, we will split 
 	the 717,509 URLs into parent batches and will manually start each master batch. 
 	'''
-	all_urls = dt.txtToList(ZIP_FILEPATH)
+	all_urls = ut.txtToList(ZIP_FILEPATH)
 
 	# Master batches
-	master_batches = dt.batch(all_urls, M_BATCH_SIZE)
+	master_batches = ut.batch(all_urls, M_BATCH_SIZE)
 
 	# Pre-process loop
-	dt.preprocess(master_batches[BATCH_ID])
+	dp.preprocess(master_batches[BATCH_ID])
 
 if __name__ == "__main__":
 	main()
