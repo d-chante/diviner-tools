@@ -21,11 +21,11 @@ def main():
 	# Filepath to list of .zip URLs
 	ZIP_FILEPATH = sys.argv[2]
 
-	# Batch ID (0 to 28)
+	# Batch ID (0 to 72)
 	BATCH_ID = int(sys.argv[3])
 
 	# Master batch size
-	M_BATCH_SIZE = 25000
+	M_BATCH_SIZE = 10000
 
 	'''
 	diviner_tools is a custom library developed specifically for this task. Upon initialization 
