@@ -213,7 +213,7 @@ class DivinerPreprocessor(object):
 		'''
 
 		# Log start time
-		start_t = self.__timeStamp
+		start_t = self.__timeStamp()
 
 		logging.info("Start time: " + repr(start_t))
 
@@ -251,7 +251,7 @@ class DivinerPreprocessor(object):
 		@brief Configures logger module
 		'''
 		log_filepath = "{0}/diviner_tools_log_{1}_{2}.log".format(
-			self.__logDir, self.__label, datetime.now().strftime("%Y-%m-%d_%H-%M"))
+			self.__logDir, self.__label, self.__timeStamp())
 
 		logging.basicConfig(
 			level=logging.DEBUG,
