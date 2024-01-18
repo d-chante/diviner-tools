@@ -55,7 +55,7 @@ def main():
 	master_batches = ut.batch(all_urls, M_BATCH_SIZE)
 
 	# Pre-process loop
-	#dp.preprocess(master_batches[BATCH_ID])
+	dp.preprocess(master_batches[BATCH_ID])
 
 if __name__ == "__main__":
 	main()
