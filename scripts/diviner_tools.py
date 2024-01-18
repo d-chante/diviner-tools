@@ -205,12 +205,10 @@ class DivinerPreprocessor(object):
 		'''
 		@brief Returns current time as a string
 		'''
-		curr_t = datetime.now(pytz.timezone('America/Montreal'))
-		curr_t = curr_t.strftime('%Y-%m-%d %H:%M')
+		return datetime.now(
+			pytz.timezone('America/Montreal')).strftime('%Y-%m-%d %H:%M')
 
-		return curr_t
-	
-	
+		
 	def __startTimer(self):
 		'''
 		@brief Logs a start time
@@ -276,12 +274,10 @@ class DivinerPreprocessor(object):
 
 		@param data_dir The data directory filepath
 		'''
-		try:
-			if not os.path.exists(data_dir):
-				os.makedirs(data_dir)
-		
-		except Exception as e:
-			logging.error("Unable to create directory: " + repr(data_dir) + " Error message: " + repr(e))
+		if not os.path.exists(data_dir):
+			os.makedirs(data_dir)
+		else:
+			logging.error("Unable to create directory: " + repr(data_dir))
 
 
 	def __getDatabaseFilepath(self):
@@ -360,14 +356,6 @@ class DivinerPreprocessor(object):
 		'''
 		ok = True
 
-		# Verify the destination directory exists
-		try:
-			os.makedirs(dest_dir, exist_ok=True)
-
-		except Exception as e:
-			logging.error("Unable to create or access directory: " + repr(dest_dir) + " Error message: " + repr(e))
-			ok = False
-
 		# Extract filename
 		filename = os.path.join(dest_dir, src_url.split("/")[-1])
 
@@ -391,22 +379,34 @@ class DivinerPreprocessor(object):
 			logging.error("Unable to write to file: " + repr(filename) + " Error message: " + repr(e))
 			ok = False
 
-		# Extract the contents of the zip file
-		try:
-			with ZipFile(filename, 'r') as zip_ref:
-				zip_ref.extractall(dest_dir)
+		# Something else went wrong
+		except Exception as e:
+			logging.error("An error occured when trying to acquire .zip file: " + repr(filename))
 
-		except BadZipFile as e:
-			logging.error("Unable to open unzip file: " + repr(filename) + " Error message: " + repr(e))
+		# Extract the contents of the zip file
+		if os.path.exists(filename):
+			try:
+				with ZipFile(filename, 'r') as zip_ref:
+					zip_ref.extractall(dest_dir)
+			
+			# Something goes wrong with opening the zip file
+			except BadZipFile as e:
+				logging.error("Unable to open unzip file: " + repr(filename) + " Error message: " + repr(e))
+				ok = False
+
+		# The file does not exist		
+		else:	
+			logging.error("Zip file " + repr(filename) + "does not exist")
 			ok = False
 
 		# Delete original .zip file
 		try:
 			os.remove(filename)
-			
+		
+		# Unable to delete the zip file, although not deleting
+		# is okay, so we won't set ok = False for this failing
 		except Exception as e:
 			logging.error("Unable to delete zip file: " + repr(filename) + " Error message: " + repr(e))
-			ok = False
 
 		return ok
 	
