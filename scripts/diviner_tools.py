@@ -531,6 +531,7 @@ class DivinerPreprocessor(object):
 
 		else:
 			# Add the filename to the bad files text
+			logging.error("Bad file being logged: " + repr(filename))
 			self.ut.appendToFile(
 				self.__badFilesDir + "/bad_files_" + self.__label + ".txt", filename)
 
