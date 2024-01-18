@@ -1,5 +1,4 @@
 beautifulsoup4
 public
-pytz
 requests
 PyYAML

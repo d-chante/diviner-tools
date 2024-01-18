@@ -6,12 +6,11 @@
 '''
 from bs4 import BeautifulSoup
 import concurrent.futures
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 import logging
 import os
 from public import public
-import pytz
 import requests
 import re
 import sqlite3
@@ -205,8 +204,7 @@ class DivinerPreprocessor(object):
 		'''
 		@brief Returns current time as a string
 		'''
-		return datetime.now(
-			pytz.timezone('America/Montreal')).strftime('%Y-%m-%d %H:%M')
+		return datetime.now().strftime('%Y-%m-%d %H:%M')
 
 		
 	def __startTimer(self):
@@ -215,9 +213,9 @@ class DivinerPreprocessor(object):
 		'''
 
 		# Log start time
-		start_t = datetime.now(pytz.timezone('America/Montreal'))
+		start_t = self.__timeStamp
 
-		logging.info("Start time: " + repr(start_t.strftime('%Y-%m-%d %H:%M')))
+		logging.info("Start time: " + repr(start_t))
 
 		return start_t
 
@@ -229,8 +227,8 @@ class DivinerPreprocessor(object):
 
 		@param start_time The start time
 		'''
-		end_t = datetime.now(pytz.timezone('America/Montreal'))
-		logging.info("End time: " + repr(end_t.strftime('%Y-%m-%d %H:%M')))
+		end_t = self.__timeStamp()
+		logging.info("End time: " + repr(end_t))
 
 		# Total elapsed time
 		delta_t = end_t - start_time
