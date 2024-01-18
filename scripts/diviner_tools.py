@@ -495,11 +495,11 @@ class DivinerPreprocessor(object):
 		'''
 		tabok = self.__getTab(self.__tmpDir, url)
 
-		if (tabok):
-			# Synth filename from url
-			file = re.search(r'(\d{12}_rdr)', url)[0].upper()
-			filename = os.path.join(self.__tmpDir,  file + ".TAB")
+		# Synth filename from url
+		file = re.search(r'(\d{12}_rdr)', url)[0].upper()
+		filename = os.path.join(self.__tmpDir,  file + ".TAB")
 
+		if (tabok):
 			# Read lines from .TAB file
 			lines = self.ut.tabToLines(filename)
 
