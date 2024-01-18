@@ -275,9 +275,11 @@ class DivinerPreprocessor(object):
 		@param data_dir The data directory filepath
 		'''
 		if not os.path.exists(data_dir):
-			os.makedirs(data_dir)
-		else:
-			logging.error("Unable to create directory: " + repr(data_dir))
+			try:
+				os.makedirs(data_dir)
+				
+			except Exception as e:
+				logging.error("Unable to create directory: " + repr(data_dir))
 
 
 	def __getDatabaseFilepath(self):
