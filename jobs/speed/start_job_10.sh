@@ -16,7 +16,7 @@ module load anaconda3/default
 conda activate /speed-scratch/d_chante/env/dte
 
 # Run preprocessing job
-python3 /speed-scratch/d_chante/diviner-tools/scripts/data_preprocess.py /speed-scratch/d_chante/diviner-tools/config/cosmocanyon_cfg.yaml /speed-scratch/d_chante/diviner-tools/support/other/zip_urls.txt 10
+python3 /speed-scratch/d_chante/diviner-tools/scripts/data_preprocess.py /speed-scratch/d_chante/diviner-tools/config/speed_cfg.yaml /speed-scratch/d_chante/diviner-tools/support/other/zip_urls.txt 10
 
 # Deactivate the environment
 conda deactivate
