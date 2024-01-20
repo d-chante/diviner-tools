@@ -1,6 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=setup_env
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=chantelle.dubois@mail.concordia.ca
 #SBATCH --time=00:30:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
