@@ -4,10 +4,11 @@
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=chantelle.dubois@mail.concordia.ca
 #SBATCH --chdir=/speed-scratch/d_chante/tmp
-#SBATCH --time=00:30:00
+#SBATCH --time=5-00:00:00
+#SBATCH --nodes=1 
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=1G
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=10G
 
 # Load python module
 module load anaconda3/default

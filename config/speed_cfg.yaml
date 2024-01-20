@@ -14,13 +14,13 @@ bad_files_directory: "/speed-scratch/d_chante/diviner_data/txt_files/bad_files"
 log_directory: "/speed-scratch/d_chante/diviner_data/txt_files/logs"
 
 # Batch size of number of .TAB files processed per iteration
-batch_size: 32
+batch_size: 30
 
 # Max transaction size for SQL queries
 transaction_size: 100000
 
 # Max number of thread workers
-max_workers: 32
+max_workers: 30
 
 # Flag to indicate whether or not to use timer
 use_timer: true 
