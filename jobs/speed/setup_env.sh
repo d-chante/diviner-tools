@@ -1,24 +1,31 @@
-#!/bin/bash
+#!/encs/bin/tcsh
 
 #SBATCH --job-name=setup_env
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=chantelle.dubois@mail.concordia.ca
+#SBATCH --chdir=/speed-scratch/d_chante/tmp
 #SBATCH --time=00:30:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=1G
 
-# Load conda module
-module load anaconda/2020.07  
+# Load python module
+module load anaconda3/default
 
-# Set path to conda env
-ENV_PATH=/speed-scratch/d_chante/dte
+# Set conda shell
+conda init tcsh
+
+# Re-source shell
+source ~/.tcshrc
 
 # Create conda env
-conda create --prefix $ENV_PATH python=3.8  
+conda create --prefix /speed-scratch/d_chante/env/dte --yes
 
 # Activate conda env
-source activate $ENV_PATH
+conda activate /speed-scratch/d_chante/env/dte
+
+# Install pip
+conda install pip
 
 # Install pcakages from requirements.txt
 pip install -r /speed-scratch/d_chante/diviner-tools/support/other/requirements.txt
