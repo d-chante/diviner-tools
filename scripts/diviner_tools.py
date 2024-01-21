@@ -70,17 +70,11 @@ class DivinerPreprocessor(object):
 		# Pathway to logs directory
 		self.__logDir = self.__cfg['log_directory']
 
-		# Batch size for number of .TAB files processed per iteration
-		self.__batchSize = self.__cfg['batch_size']
-
 		# Max transaction size for SQL queries
 		self.__transactionSize = self.__cfg['transaction_size']
 
 		# Max number of thread workers
 		self.__maxWorkers = self.__cfg['max_workers']
-
-		# Flag to indicate whether or not to use timer
-		self.__useTimer = self.__cfg['use_timer'] 
 
 		# Create directories if they don't exist
 		self.__createDir(self.__dbDir)
@@ -199,52 +193,6 @@ class DivinerPreprocessor(object):
 	# * * * * * * * * * * * * * * * * * * * * * * * * *
 	# TIMING AND LOGGING
 	# * * * * * * * * * * * * * * * * * * * * * * * * *
-			
-	def __timeStamp(self):
-		'''
-		@brief Returns current time as a string
-		'''
-		return datetime.now().strftime('%Y-%m-%d %H:%M')
-
-		
-	def __startTimer(self):
-		'''
-		@brief Logs a start time
-		'''
-
-		# Log start time
-		start_t = self.__timeStamp()
-
-		logging.info("Start time: " + repr(start_t))
-
-		return start_t
-
-
-	def __stopTimer(self, start_time):
-		'''
-		@brief	Determines elapsed time given a start time and prints
-			in human-readable format
-
-		@param start_time The start time
-		'''
-		end_t = self.__timeStamp()
-		logging.info("End time: " + repr(end_t))
-
-		# Total elapsed time
-		delta_t = end_t - start_time
-
-		# Calculate total seconds in the timedelta
-		total_seconds = int(delta_t.total_seconds())
-
-		# Extract hours, minutes, and seconds
-		hours, remainder = divmod(total_seconds, 3600)
-		minutes, seconds = divmod(remainder, 60)
-
-		# Format the output as HH:mm:ss
-		formatted_time = f"{hours:02}:{minutes:02}:{seconds:02}"
-
-		logging.info("Elapsed time: " + formatted_time)
-
 
 	def __configLogger(self):
 		'''
@@ -541,20 +489,23 @@ class DivinerPreprocessor(object):
 
 		@param data A list of zip urls
 		'''
-
-		# Start timer if the timer option is selected
-		if (self.__useTimer):
-			start_t = self.__startTimer()
+		# Log start time
+		start_t = self.ut.dateTimeStamp()
+		logging.info("Start time: " + start_t)
 
 		# Start the SQL job monitor 
 		self.__startJobMonitor()
 		
-		# Split data into batches
-		batched_data = self.ut.batch(data, self.__batchSize)
+		# Split data into batches based on max workers
+		batched_data = self.ut.batch(data, self.__maxWorkers)
 
 		for n, batch in enumerate(batched_data, start=0):
 
-			logging.info("Processing batch " + repr(n+1) + " of " + repr(len(batched_data)) + " (" + self.__timeStamp() + ")")
+			# Log current status
+			status = "Processing batch {0} of {1} - {2}% - Time elapsed: {3}".format(
+				n+1, len(batched_data), ((n+1)/len(batched_data))*100, self.ut.elapsedTime(start_t))
+			
+			logging.info(status)
 
 			# Start thread pool, should choose max workers carefully to not overrun memory
 			with concurrent.futures.ThreadPoolExecutor(max_workers=self.__maxWorkers) as executor:
@@ -570,9 +521,9 @@ class DivinerPreprocessor(object):
 		# Stop the job monitor (the job monitor will wait for the queue to empty first)
 		self.__stopJobMonitor()
 
-		# End timer if the timer option is selected
-		if (self.__useTimer):
-			self.__stopTimer(start_t)
+		# Time elapsed
+		delta_t = self.ut.elapsedTime(start_t)
+		logging.info("Total elapsed time: " + delta_t)
 
 
 class ZipCrawler(object):
@@ -790,3 +741,43 @@ class Utils(object):
 		hh, mm, ss = hh_mm_ss.split(':')
 		
 		return [int(hh), int(mm), int(ss), int(sss)]
+	
+
+	@public
+	def dateTimeStamp(self):
+		'''
+		@brief Returns current time
+
+		@return String time in format YYY-MM-DD HH:mm
+		'''
+		return datetime.now().strftime('%Y-%m-%d %H:%M')
+
+
+	@public
+	def elapsedTime(self, start_time):
+		'''
+		@brief	Determines elapsed time given a start time and prints
+			in human-readable format
+
+		@param start_time The start time
+
+		@return Time elapsed in DD:HH:mm:ss
+		'''
+		end_t = self.dateTimeStamp()
+		logging.info("End time: " + repr(end_t))
+
+		# Total elapsed time
+		delta_t = end_t - start_time
+
+		# Calculate total seconds in the timedelta
+		total_seconds = int(delta_t.total_seconds())
+		
+		# Extract days, hours, minutes, and seconds
+		days, remainder = divmod(total_seconds, 86400)
+		hours, remainder = divmod(remainder, 3600)
+		minutes, seconds = divmod(remainder, 60)
+		
+		 # Format the output as DD:HH:mm:ss
+		formatted_time_delta = f"{days:02}:{hours:02}:{minutes:02}:{seconds:02}"
+
+		return formatted_time_delta
