@@ -10,7 +10,7 @@
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=10G
 
-# Load python module
+# Load anaconda module
 module load anaconda3/default
 
 # Activate conda env
