@@ -490,8 +490,8 @@ class DivinerPreprocessor(object):
 		@param data A list of zip urls
 		'''
 		# Log start time
-		start_t = self.ut.dateTimeStamp()
-		logging.info("Start time: " + start_t)
+		start_t = self.ut.timeStamp()
+		logging.info("Start time: " + self.ut.timeToString(start_t))
 
 		# Start the SQL job monitor 
 		self.__startJobMonitor()
@@ -744,13 +744,18 @@ class Utils(object):
 	
 
 	@public
-	def dateTimeStamp(self):
+	def timeToString(self, time_t):
+		return time_t.strftime('%Y-%m-%d %H:%M')
+
+
+	@public
+	def timeStamp(self):
 		'''
 		@brief Returns current time
 
-		@return String time in format YYY-MM-DD HH:mm
+		@return Time stamp
 		'''
-		return datetime.now().strftime('%Y-%m-%d %H:%M')
+		return datetime.now()
 
 
 	@public
@@ -761,10 +766,9 @@ class Utils(object):
 
 		@param start_time The start time
 
-		@return Time elapsed in DD:HH:mm:ss
+		@return Time elapsed in string DD:HH:mm:ss
 		'''
-		end_t = self.dateTimeStamp()
-		logging.info("End time: " + repr(end_t))
+		end_t = self.timeStamp()
 
 		# Total elapsed time
 		delta_t = end_t - start_time
