@@ -49,11 +49,13 @@ There are 717,509 .zip URLs for the time period between 1 January 2010 to 15 Sep
 
 The pre-processing is split into master batches of 10,000 zip urls which results in 72 jobs being required to run. Each job will use about 15 GB of RAM, 12 GB of storage space while processing zip files, and will output a database file that is approximately 100GB. The run-time for each job is approximate 2.5 days.
 
+#### Configuration
+
+ The cfg.yaml files specifies target directories for the database object produced, the temporary directory where zip files are downloaded to, as well as the directory for text files that track metrics such as how many datapoints are extracted from the tab files (if > 0), which files failed to be processed, as well as output logs of the pre-processing. The filepath to the yaml file is passed to the DivinerPreprocessor object when it is initialized, which will then create the directories and database object. 
+
 #### Preprocessing on CosmoCanyon
 
-CosmoCanyon is a regular desktop PC. The cosmocanyon_cfg.yaml file specifies target directories for the database object produced, the temporary directory where zip files are downloaded to, as well as the directory for text files that track metrics such as how many datapoints are extracted from the tab files (if > 0), which files failed to be processed, as well as output logs of the pre-processing.
-
-A job is started by running:
+CosmoCanyon is a regular desktop PC. A job is started by running:
 
 	python3 data_preprocess.py /path/to/diviner-tools/config/cosmocanyon_cfg.yaml /path/to/diviner-tools/support/other/zip_urls.txt <JOBID>
 Job ID is a number between 0 and 72 which represents which master batch is pre-processed.
@@ -73,3 +75,4 @@ The resulting database files can be transferred to your local machine using rsyn
 
 	
 	rsync -avz --progress --partial username@speed.encs.concordia.ca:/speed-scratch/username/diviner_data/database/diviner_data_job_x.db
+
