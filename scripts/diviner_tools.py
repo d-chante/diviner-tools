@@ -503,7 +503,7 @@ class DivinerPreprocessor(object):
 
 			# Log current status
 			status = "Processing batch {0} of {1} - {2}% - Time elapsed: {3}".format(
-				n+1, len(batched_data), ((n+1)/len(batched_data))*100, self.ut.elapsedTime(start_t))
+				n+1, len(batched_data), round(((n+1)/len(batched_data))*100), self.ut.elapsedTime(start_t))
 			
 			logging.info(status)
 
