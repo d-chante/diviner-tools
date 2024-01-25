@@ -8,7 +8,7 @@
 #SBATCH --nodes=1 
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
-#SBATCH --mem=10G
+#SBATCH --mem=15G
 
 # Load anaconda module
 module load anaconda3/default
