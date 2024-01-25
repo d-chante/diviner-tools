@@ -9,10 +9,10 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=1G
 
-# Load python module
+# Load anaconda module
 module load anaconda3/default
 
-# Set conda shell
+# Init conda shell
 conda init tcsh
 
 # Re-source shell
