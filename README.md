@@ -3,9 +3,9 @@ Diviner Tools is a custom library for data pre-processing Diviner RDR LVL1 Chann
 * Activity Flag (af) == 110
 * Channel (c) == 7
 * Emission Angle (cemis) < 10
-* Calibration Quality Flag (qca) == 
-* Geometry Flag (qge) == 
-* Miscellaneous Quality Flag (qmi) == 
+* Calibration Quality Flag (qca) == 000
+* Geometry Flag (qge) == 012
+* Miscellaneous Quality Flag (qmi) == 000
 
 The resulting database(s) contains a table with the following columns:
 * year
