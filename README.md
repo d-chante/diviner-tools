@@ -7,26 +7,6 @@ Diviner Tools is a custom library for pre-processing Diviner RDR LVL1 Channel 7 
 * Geometry Flag (qge) == 012
 * Miscellaneous Quality Flag (qmi) == 000
 
-The resulting database(s) contains a table with the following columns:
-* id
-* year
-* month
-* day
-* hour
-* minute
-* second
-* sundist
-* sunlat
-* sunlon
-* radiance
-* tb
-* clat
-* clon
-* cemis
-* csunzen
-* csunazi
-* cloctime
-
 Refer to the DLRE RDR Software Interface Specification for more details: https://pds-geosciences.wustl.edu/lro/lro-l-dlre-4-rdr-v1/lrodlr_1001/document/diviner_rdr_sis.pdf
 
 ### Requirements
@@ -104,3 +84,24 @@ The resulting database files can be transferred to your local machine using rsyn
 	
 	rsync -avz --progress --partial username@speed.encs.concordia.ca:/speed-scratch/username/diviner_data/database/diviner_data_job_x.db
 
+### Database
+
+The resulting database(s) contains a table RDR_LVL1_CH7 with the following columns:
+* id
+* year
+* month
+* day
+* hour
+* minute
+* second
+* sundist
+* sunlat
+* sunlon
+* radiance
+* tb
+* clat
+* clon
+* cemis
+* csunzen
+* csunazi
+* cloctime
