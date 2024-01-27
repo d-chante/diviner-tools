@@ -1,5 +1,32 @@
 # Diviner Tools
-Diviner Tools is a custom library for data pre-processing Diviner RDR LVL1 Channel 7 data. 
+Diviner Tools is a custom library for data pre-processing Diviner RDR LVL1 Channel 7 data that filters for data with the following parameters:
+* Activity Flag (af) == 110
+* Channel (c) == 7
+* Emission Angle (cemis) < 10
+* Calibration Quality Flag (qca) == 
+* Geometry Flag (qge) == 
+* Miscellaneous Quality Flag (qmi) == 
+
+The resulting database(s) contains a table with the following columns:
+* year
+* month
+* day
+* hour
+* minute
+* second
+* sundist
+* sunlat
+* sunlon
+* radiance
+* tb
+* clat
+* clon
+* cemis
+* csunzen
+* csunazi
+* cloctime
+
+Refer to the DLRE RDR Software Interface Specification for more details: https://pds-geosciences.wustl.edu/lro/lro-l-dlre-4-rdr-v1/lrodlr_1001/document/diviner_rdr_sis.pdf
 
 ### Requirements
 The following packages are required:
@@ -9,7 +36,7 @@ The following packages are required:
 * requests
 * PyYAML
 
-These can be installed individually, or by using pip:
+Install from the requirements file using pip:
 
 	pip install -r /support/other/requirements.txt
 
@@ -20,13 +47,13 @@ The python script 'find_urls.py' will crawl the Diviner data host pages to find 
 
 To generate a text file that contains all discovered .zip file URLs, run the following:
 
-    python3 run_urls.py </path/to/output/txt/file.txt>
+    python3 find_urls.py </path/to/output/txt/file.txt>
 
 This process will take approximately 10 minutes.
 
 ### Finding .Zip URLs from a specific year
 
-You can also search for .zip urls from a specific URL. First, import ZipCrawler and Utils from diviner_tools:
+You can also search for .zip urls from a specific year. First, import ZipCrawler and Utils from diviner_tools:
 
 	from diviner_tools import ZipCrawler, Utils
 
@@ -55,7 +82,7 @@ The pre-processing is split into master batches of 10,000 zip urls which results
 
 #### Preprocessing on CosmoCanyon
 
-CosmoCanyon is a regular desktop PC. A job is started by running:
+CosmoCanyon is a regular desktop PC running Ubuntu 22.04 LTS. A job is started by running:
 
 	python3 data_preprocess.py /path/to/diviner-tools/config/cosmocanyon_cfg.yaml /path/to/diviner-tools/support/other/zip_urls.txt <JOBID>
 Job ID is a number between 0 and 72 which represents which master batch is pre-processed.
