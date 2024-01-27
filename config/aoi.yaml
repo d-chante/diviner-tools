@@ -7,7 +7,7 @@ Class definitions:
   1 - thermal anomalies
   2 - microwave anomalies
   3 - magnetic anomalies
-  4 - thermal & microwave anomalies
+  4 - background
 '''
 
 areas_of_interest:
