@@ -1,5 +1,5 @@
 # Diviner Tools
-Diviner Tools is a custom library for data pre-processing Diviner RDR LVL1 Channel 7 data that filters for data with the following parameters:
+Diviner Tools is a custom library for pre-processing Diviner RDR LVL1 Channel 7 data that filters for data with the following parameters:
 * Activity Flag (af) == 110
 * Channel (c) == 7
 * Emission Angle (cemis) < 10
@@ -8,6 +8,7 @@ Diviner Tools is a custom library for data pre-processing Diviner RDR LVL1 Chann
 * Miscellaneous Quality Flag (qmi) == 000
 
 The resulting database(s) contains a table with the following columns:
+* id
 * year
 * month
 * day
