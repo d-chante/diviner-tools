@@ -2,7 +2,11 @@
 @file diviner_tools.py
 @author Chantelle G. Dubois (chantelle.dubois@mail.concordia.ca)
 
-@brief Tools to help pre-process diviner data
+@brief Tools to help pre-process diviner data:
+	- DivinerPreprocessor
+	- ProfileGenerator
+	- ZipCrawler
+	- Utils
 '''
 from bs4 import BeautifulSoup
 import concurrent.futures
@@ -43,8 +47,17 @@ JOB_TEMPLATE = '''
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	'''
 
+# Enum for area of interest classes
+AOI = Enum(
+    'AOI',
+    ['THERMAL','MICROWAVE','MAGNETIC','BACKGROUND'],
+    start=1)
+
 
 class DivinerPreprocessor(object):
+	'''
+	@brief A class to pre-process Diviner RDR LVL1 CH7 Data
+	'''
 
 	def __init__(self, cfg_filepath, label=""):
 
@@ -93,6 +106,54 @@ class DivinerPreprocessor(object):
 		self.ut = Utils()
 
 	# * * * * * * * * * * * * * * * * * * * * * * * * *
+	# FILEPATHS
+	# * * * * * * * * * * * * * * * * * * * * * * * * *
+		
+	def __getDatabaseFilepath(self):
+		'''
+		@brief Returns database filepath
+
+		@return A string to the database file
+		'''
+		return os.path.join(
+			self.__dbDir, 
+			"diviner_data_" + self.__label + ".db")
+	
+	
+	def __getUsefulTabsFilepath(self):
+		'''
+		@brief Returns database filepath
+
+		@return A string to the database file
+		'''
+		return os.path.join(
+			self.__usefulTabsDir, 
+			"useful_tabs_" + self.__label + ".txt")
+	
+
+	def __getBadFilesFilepath(self):
+		'''
+		@brief Returns database filepath
+
+		@return A string to the database file
+		'''
+		return os.path.join(
+			self.__badFilesDir,
+			"bad_files_" + self.__label + ".txt")
+
+
+	def __getLogFilepath(self):
+		'''
+		@brief Returns database filepath
+
+		@return A string to the database file
+		'''
+		return os.path.join(
+			self.__logDir,
+			"diviner_tools_" + self.__label + "_" + \
+				datetime.now().strftime('%Y-%m-%d_%H%M') + ".log")
+	
+	# * * * * * * * * * * * * * * * * * * * * * * * * *
 	# JOB QUEUE
 	# * * * * * * * * * * * * * * * * * * * * * * * * *
 
@@ -101,7 +162,6 @@ class DivinerPreprocessor(object):
 		@brief 	Monitors a job queue for data that needs to be written
 			to a database.
 		'''
-
 		# To speed up writing, we can process
 		# jobs in 'chunks'
 		jobs_chunk = []
@@ -149,7 +209,6 @@ class DivinerPreprocessor(object):
 		@brief	Waits until all SQL jobs are complete and then issues
 			a stop command that will stop the job monitor thread
 		'''
-
 		# Wait until all jobs are completed
 		self.__waitForJobQueueToEmpty()
 		
@@ -184,7 +243,8 @@ class DivinerPreprocessor(object):
 			db_connection.commit()
 
 		except sqlite3.Error as e:
-			logging.error("Unable to write job to database: " + repr(e) + " - Job contents: " + repr(job))
+			logging.error("Unable to write job to database: " + repr(e) + \
+				 " - Job contents: " + repr(job))
 
 		finally:
 			if db_connection:
@@ -198,17 +258,14 @@ class DivinerPreprocessor(object):
 		'''
 		@brief Configures logger module
 		'''
-		log_filepath = "{0}/diviner_tools_log_{1}_{2}.log".format(
-			self.__logDir, self.__label, datetime.now().strftime('%Y-%m-%d_%H%M'))
-
 		logging.basicConfig(
 			level=logging.DEBUG,
 			format='%(asctime)s - %(levelname)s - %(message)s',
 			handlers=[
-				logging.FileHandler(log_filepath), 
+				logging.FileHandler(self.__getLogFilepath()), 
 				logging.StreamHandler()])
 
-		logging.info("Logging started: " + repr(log_filepath))
+		logging.info("Logging started: " + repr(self.__getLogFilepath()))
 
 	# * * * * * * * * * * * * * * * * * * * * * * * * *
 	# FILE/DIRECTORY MANAGEMENT
@@ -228,21 +285,10 @@ class DivinerPreprocessor(object):
 				logging.error("Unable to create directory: " + repr(data_dir))
 
 
-	def __getDatabaseFilepath(self):
-		'''
-		@brief Returns database filepath
-
-		@return A string to the database file
-		'''
-		return os.path.join(
-			self.__dbDir, "diviner_data_" + self.__label + ".db")
-	
-
 	def __createDatabase(self):
 		'''
 		@brief Create database if it doesn't exist
 		'''
-
 		db_connection = None
 
 		try:
@@ -319,17 +365,20 @@ class DivinerPreprocessor(object):
 
 		# Something goes wrong with http request
 		except requests.exceptions.RequestException as e:
-			logging.error("Unable to make request to url: " + repr(src_url) + " Error message: " + repr(e))
+			logging.error("Unable to make request to url: " + repr(src_url) + \
+				 " Error message: " + repr(e))
 			ok = False
 
 		# Something goes wrong with writing to file
 		except IOError as e:
-			logging.error("Unable to write to file: " + repr(filename) + " Error message: " + repr(e))
+			logging.error("Unable to write to file: " + repr(filename) + \
+				 " Error message: " + repr(e))
 			ok = False
 
 		# Something else went wrong
 		except Exception as e:
-			logging.error("An error occured when trying to acquire .zip file: " + repr(filename))
+			logging.error("An error occured when trying to acquire .zip file: " + \
+				 repr(filename))
 
 		# Extract the contents of the zip file
 		if os.path.exists(filename):
@@ -339,7 +388,8 @@ class DivinerPreprocessor(object):
 			
 			# Something goes wrong with opening the zip file
 			except BadZipFile as e:
-				logging.error("Unable to open unzip file: " + repr(filename) + " Error message: " + repr(e))
+				logging.error("Unable to open unzip file: " + repr(filename) + \
+				  " Error message: " + repr(e))
 				ok = False
 
 		# The file does not exist		
@@ -354,7 +404,8 @@ class DivinerPreprocessor(object):
 		# Unable to delete the zip file, although not deleting
 		# is okay, so we won't set ok = False for this failing
 		except Exception as e:
-			logging.error("Unable to delete zip file: " + repr(filename) + " Error message: " + repr(e))
+			logging.error("Unable to delete zip file: " + repr(filename) + \
+				 " Error message: " + repr(e))
 
 		return ok
 	
@@ -370,7 +421,6 @@ class DivinerPreprocessor(object):
 
 		@return A boolean on whether or not the data meets criteria
 		'''
-
 		# Check the data conforms to the params:
 		#    af == 110
 		#    c == 7
@@ -395,7 +445,6 @@ class DivinerPreprocessor(object):
 		@param data The text line containing the data entry
 		@param 0 or 1 depending if the data was added or not
 		'''
-	
 		# Split the line    
 		values = data.strip().split(',')
 
@@ -415,10 +464,12 @@ class DivinerPreprocessor(object):
 
 				# The specific values to be inserted
 				job_values = [
-					dd, mm, yy, hr, min, sec, float(values[FIELD.SUNDIST.value]), float(values[FIELD.SUNLAT.value]),
-					float(values[FIELD.SUNLON.value]), float(values[FIELD.RADIANCE.value]), float(values[FIELD.TB.value]), 
-					float(values[FIELD.CLAT.value]), float(values[FIELD.CLON.value]), float(values[FIELD.CEMIS.value]), 
-					float(values[FIELD.CSUNZEN.value]), float(values[FIELD.CSUNAZI.value]), float(values[FIELD.CLOCTIME.value])]
+					dd, mm, yy, hr, min, sec, float(values[FIELD.SUNDIST.value]), 
+					float(values[FIELD.SUNLAT.value]),float(values[FIELD.SUNLON.value]), 
+					float(values[FIELD.RADIANCE.value]), float(values[FIELD.TB.value]), 
+					float(values[FIELD.CLAT.value]), float(values[FIELD.CLON.value]), 
+					float(values[FIELD.CEMIS.value]), float(values[FIELD.CSUNZEN.value]), 
+					float(values[FIELD.CSUNAZI.value]), float(values[FIELD.CLOCTIME.value])]
 
 				# Adding job to job queue
 				self.job_queue.put(job_values)
@@ -464,7 +515,7 @@ class DivinerPreprocessor(object):
 			if (count > 0):
 				data = url + " " + repr(count)
 				self.ut.appendToFile(
-					self.__usefulTabsDir + "/useful_tabs_" + self.__label + ".txt", data)
+					self.__getUsefulTabsFilepath(), data)
 				logging.info("Added " + repr(count) + " files to job queue")
 
 			# We no longer need the .TAB data and will delete
@@ -473,13 +524,14 @@ class DivinerPreprocessor(object):
 				os.remove(filename)
 
 			except Exception as e:
-				logging.error("Unable to delete TAB file: " + repr(filename) + " Error message: " + repr(e))
+				logging.error("Unable to delete TAB file: " + repr(filename) + \
+				  " Error message: " + repr(e))
 
 		else:
 			# Add the filename to the bad files text
 			logging.error("Bad file being logged: " + repr(filename))
 			self.ut.appendToFile(
-				self.__badFilesDir + "/bad_files_" + self.__label + ".txt", filename)
+				self.__getBadFilesFilepath(), filename)
 
 
 	@public
@@ -503,7 +555,10 @@ class DivinerPreprocessor(object):
 
 			# Log current status
 			status = "Processing batch {0} of {1} - {2}% - Time elapsed: {3}".format(
-				n+1, len(batched_data), round(((n+1)/len(batched_data))*100), self.ut.elapsedTime(start_t))
+				n+1, 
+				len(batched_data), 
+				round(((n+1)/len(batched_data))*100), 
+				self.ut.elapsedTime(start_t))
 			
 			logging.info(status)
 
@@ -525,8 +580,29 @@ class DivinerPreprocessor(object):
 		delta_t = self.ut.elapsedTime(start_t)
 		logging.info("Total elapsed time: " + delta_t)
 
+		# Entries added to database
+		num_entries = self.ut.countEntries(self.__getUsefulTabsFilepath())
+		logging.info("Number of entries added to database: " + repr(num_entries))
+
+		# Number of bad files
+		num_bad = self.ut.countLines(self.__getBadFilesFilepath())
+		logging.info("Number of bad files: " + repr(num_bad))
+
+
+class ProfileGenerator(object):
+	'''
+	@brief A class to generate temperature profiles
+	'''
+
+	def __init__(self):
+		# TODO
+		pass
+
 
 class ZipCrawler(object):
+	'''
+	@brief A class to find .zip files containing Diviner data
+	'''
 
 	def __init__(self):
 		pass
@@ -560,7 +636,8 @@ class ZipCrawler(object):
 			return sub_urls
 
 		except requests.exceptions.RequestException as e:
-			logging.error("Unable to access url: " + repr(parent_url) + " Error message: " + repr(e))
+			logging.error("Unable to access url: " + repr(parent_url) + \
+				 " Error message: " + repr(e))
 
 			# Return empty list
 			return []
@@ -573,14 +650,15 @@ class ZipCrawler(object):
 		@param input_urls The parent urls to search
 		@param pattern Optional regex pattern to match url against 
 		'''
-	
 		# Use multi-threading
 		with concurrent.futures.ThreadPoolExecutor() as executor:
 	
 			if pattern:
-				target_urls_list = list(executor.map(lambda target: self.__getSubUrls(target, pattern), input_urls))
+				target_urls_list = list(
+					executor.map(lambda target: self.__getSubUrls(target, pattern), input_urls))
 			else:
-				target_urls_list = list(executor.map(lambda target: self.__getSubUrls(target, target), input_urls))
+				target_urls_list = list(
+					executor.map(lambda target: self.__getSubUrls(target, target), input_urls))
 
 		# Collapse into single list
 		target_urls = [url for sublist in target_urls_list for url in sublist] 
@@ -593,7 +671,6 @@ class ZipCrawler(object):
 		'''
 		@brief Walks through the RDR V1 parent links to find all zip file urls
 		'''
-
 		# lroldr_1001 contains data from 2009 - 2016
 		# lroldr_1002 contains data from 2017 - 2023
 		parent_urls = [
@@ -609,7 +686,8 @@ class ZipCrawler(object):
 			pattern = r'.*/20[1-2]\d/$'
 	
 		# Generate list of year urls
-		year_urls = self.__getSubUrls(parent_urls[0], pattern) + self.__getSubUrls(parent_urls[1], pattern)
+		year_urls = self.__getSubUrls(parent_urls[0], pattern) + \
+			self.__getSubUrls(parent_urls[1], pattern)
 	
 		# Search for month urls
 		month_urls = self.__crawl(year_urls)
@@ -624,6 +702,9 @@ class ZipCrawler(object):
 	
 	
 class Utils(object):
+	'''
+	@brief A utilities class with helper functions
+	'''
 
 	def __init__(self):
 		pass
@@ -651,7 +732,8 @@ class Utils(object):
 					lines.append(line.rstrip('^M'))
 
 		except IOError as e:
-			logging.error("Unable to read file: " + repr(src_tab) + " Error message: " + repr(e))
+			logging.error("Unable to read file: " + repr(src_tab) + \
+				 " Error message: " + repr(e))
 
 		return lines
 	
@@ -670,7 +752,8 @@ class Utils(object):
 			return lines
 
 		except IOError as e:
-			logging.error("Unable to open file: " + repr(txt_filepath) + " Error message: " + repr(e))
+			logging.error("Unable to open file: " + repr(txt_filepath) + \
+				 " Error message: " + repr(e))
 
 			# Return an empty list
 			return []
@@ -690,7 +773,8 @@ class Utils(object):
 				with open(txt_filepath, 'a') as file:
 					file.write(data + '\n')
 			except IOError as e:
-				logging.error("Unable to write to file: " + repr(txt_filepath) + " Error message: " + repr(e))
+				logging.error("Unable to write to file: " + repr(txt_filepath) + \
+				  " Error message: " + repr(e))
 
 		# Appending a list of strings
 		elif isinstance(data, list):
@@ -698,7 +782,8 @@ class Utils(object):
 				with open(txt_filepath, 'a') as file:
 					file.writelines('\n'.join(data))
 			except IOError as e:
-				logging.error("Unable to write to file: " + repr(txt_filepath) + " Error message: " + repr(e))
+				logging.error("Unable to write to file: " + repr(txt_filepath) + \
+				  " Error message: " + repr(e))
 
 
 	@public
@@ -785,3 +870,52 @@ class Utils(object):
 		formatted_time_delta = f"{days:02}:{hours:02}:{minutes:02}:{seconds:02}"
 
 		return formatted_time_delta
+	
+
+	@public
+	def countEntries(self, filepath):
+		'''
+		@brief Returns the number of entries recorded in
+			the useful tabs file
+
+		@param filepath The path to the useful tabs file
+
+		@return The number of entries recorded
+		'''
+		count = 0
+
+		try:
+			with open(filepath, 'r') as file:
+				for line in file:
+					parts = line.split()
+					number = int(parts[-1])
+					count += number
+
+		except Exception as e:
+			logging.error("Unable to open useful tabs file: " + repr(filepath) + \
+				 " Error message: " + repr(e))
+
+		return count
+	
+	
+	@public
+	def countLines(self, filepath):
+		'''
+		@brief Counts the number of lines in a file
+
+		@param filepath The path to the target file
+
+		@return The number of lines
+		'''
+		count = 0
+
+		try:
+			with open(filepath, 'r') as file:
+				for line in file:
+					count += 1
+		
+		except Exception as e:
+			logging.error("Unable to open filepath to count lines: " + repr(filepath) + \
+				 " Error message: " +repr(e))
+
+		return count
