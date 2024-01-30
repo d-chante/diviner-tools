@@ -42,9 +42,9 @@ FIELD = Enum("FIELD",
 # Note: This is not a 1-1 of all data fields
 JOB_TEMPLATE = '''
 	INSERT INTO RDR_LVL1_CH7 (
-		day, month, year, hour, minute, second, sundist, sunlat, sunlon,
-		radiance, tb, clat, clon, cemis, csunzen, csunazi, cloctime 
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		datetime, sundist, sunlat, sunlon, radiance, tb, 
+		clat, clon, cemis, csunzen, csunazi, cloctime 
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	'''
 
 # Enum for area of interest classes
@@ -300,12 +300,7 @@ class DivinerPreprocessor(object):
 			rdr_lvl1_ch7_schema = '''
 				CREATE TABLE IF NOT EXISTS RDR_LVL1_CH7 (
 				id INTEGER PRIMARY KEY,
-				day INTEGER,
-				month INTEGER,
-				year INTEGER,
-				hour INTEGER,
-				minute INTEGER,
-				second INTEGER,
+				datetime TEXT,
 				sundist REAL,
 				sunlat REAL,
 				sunlon REAL,
@@ -456,15 +451,12 @@ class DivinerPreprocessor(object):
 	
 		if(dataok):
 			try:
-				# Convert date string to integers
-				dd, mm, yy = self.ut.dateStringToInt(values[FIELD.DATE.value])
-
-				# Convert time string to integers
-				hr, min, sec, _ = self.ut.timeStringToInt(values[FIELD.UTC.value]) 
+				# Join DATE and UTC fields to create datetime
+				date_time = "{0} {1}".format(values[FIELD.DATE.value], values[FIELD.UTC.value]) 
 
 				# The specific values to be inserted
 				job_values = [
-					dd, mm, yy, hr, min, sec, float(values[FIELD.SUNDIST.value]), 
+					date_time, float(values[FIELD.SUNDIST.value]), 
 					float(values[FIELD.SUNLAT.value]),float(values[FIELD.SUNLON.value]), 
 					float(values[FIELD.RADIANCE.value]), float(values[FIELD.TB.value]), 
 					float(values[FIELD.CLAT.value]), float(values[FIELD.CLON.value]), 
@@ -797,35 +789,6 @@ class Utils(object):
 		@return A list of lists
 		'''
 		return [input_list[i:i + batch_size] for i in range(0, len(input_list), batch_size)]
-	
-
-	@public
-	def dateStringToInt(self, date_string):
-		'''
-		@brief Converts a date in string format to integers
-
-		@param date_string A string representing a date in format "dd-mon-yyyy"
-
-		@return A list of integers representing a date in format [dd, mm, yy]
-		'''
-		date_dt = datetime.strptime(date_string, "%d-%b-%Y")
-
-		return [date_dt.day, date_dt.month, date_dt.year % 100]
-
-
-	@public
-	def timeStringToInt(self, time_string):
-		'''
-		@brief Converts a time string format to integers
-
-		@param time_string A string representing a time in format "HH:mm:ss.sss"
-
-		@return A list of integers representing a time in format [HH, mm, ss, sss]
-		'''
-		hh_mm_ss, sss = time_string.split('.')
-		hh, mm, ss = hh_mm_ss.split(':')
-		
-		return [int(hh), int(mm), int(ss), int(sss)]
 	
 
 	@public
