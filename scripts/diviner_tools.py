@@ -847,16 +847,17 @@ class Utils(object):
 		'''
 		count = 0
 
-		try:
-			with open(filepath, 'r') as file:
-				for line in file:
-					parts = line.split()
-					number = int(parts[-1])
-					count += number
+		if os.path.exists(filepath):
+			try:
+				with open(filepath, 'r') as file:
+					for line in file:
+						parts = line.split()
+						number = int(parts[-1])
+						count += number
 
-		except Exception as e:
-			logging.error("Unable to open useful tabs file: " + repr(filepath) + \
-				 " Error message: " + repr(e))
+			except Exception as e:
+				logging.error("Unable to open useful tabs file: " + repr(filepath) + \
+					" Error message: " + repr(e))
 
 		return count
 	
@@ -872,13 +873,14 @@ class Utils(object):
 		'''
 		count = 0
 
-		try:
-			with open(filepath, 'r') as file:
-				for line in file:
-					count += 1
+		if os.path.exists(filepath):
+			try:
+				with open(filepath, 'r') as file:
+					for line in file:
+						count += 1
 		
-		except Exception as e:
-			logging.error("Unable to open filepath to count lines: " + repr(filepath) + \
-				 " Error message: " +repr(e))
+			except Exception as e:
+				logging.error("Unable to open filepath to count lines: " + repr(filepath) + \
+					" Error message: " +repr(e))
 
 		return count
