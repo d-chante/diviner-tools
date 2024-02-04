@@ -66,9 +66,8 @@ The pre-processing is split into master batches of 10,000 zip urls which results
 CosmoCanyon is a regular desktop PC running Ubuntu 22.04 LTS. A job is started by running:
 
 	python3 data_preprocess.py /path/to/diviner-tools/config/cosmocanyon_cfg.yaml /path/to/diviner-tools/support/other/zip_urls.txt <JOBID>
-Job ID is a number between 0 and 72 which represents which master batch is pre-processed.
 
-Example job sripts can be found in jobs/cosmocanyon. 
+Job ID is a number between 0 and 72 which represents which master batch is pre-processed.
 
 Tip: it is recommended to start a job within a tmux session, to minimize the risk of the process  being killed if something happens to the terminal session. 
 
@@ -77,10 +76,19 @@ Speed is the Concordia University High Performance Computing cluster. More infor
 * https://www.concordia.ca/ginacody/aits/speed.html
 * https://github.com/NAG-DevOps/speed-hpc
 
-A conda environment should be created by submitting a specific job to do so. Subsequent preprocessing jobs will use this conda environment. See job scripts for speed in jobs/speed. 
+A conda environment should be created by submitting a specific job to do so. Subsequent preprocessing jobs will use this conda environment.
+
+	cd /path/to/diviner-tools/jobs/speed
+	sbatch setup_env.sh
+
+To submit a job:
+
+	cd /path/to/diviner-tools/jobs/speed
+	./start_job.sh <JOBID>
+
+Job ID is a number between 0 and 72 which represents which master batch is pre-processed.
 
 The resulting database files can be transferred to your local machine using rsync, for example:
-
 	
 	rsync -avz --progress --partial username@speed.encs.concordia.ca:/speed-scratch/username/diviner_data/database/diviner_data_job_x.db
 
@@ -88,12 +96,7 @@ The resulting database files can be transferred to your local machine using rsyn
 
 The resulting database(s) contains a table RDR_LVL1_CH7 with the following columns:
 * id
-* year
-* month
-* day
-* hour
-* minute
-* second
+* datetime
 * sundist
 * sunlat
 * sunlon
