@@ -21,6 +21,9 @@ conda init tcsh
 # Re-source shell
 source ~/.tcshrc
 
+# Logging env
+env
+
 # Activate conda env
 conda activate /speed-scratch/d_chante/env/dte
 
