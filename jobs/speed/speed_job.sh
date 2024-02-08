@@ -15,6 +15,12 @@ set job_id = $JOB_ID
 # Load anaconda module
 module load anaconda3/2023.03/default
 
+# Init conda shell
+conda init tcsh
+
+# Re-source shell
+source ~/.tcshrc
+
 # Activate conda env
 conda activate /speed-scratch/d_chante/env/dte
 
