@@ -10,7 +10,7 @@
 #SBATCH --mem-per-cpu=1G
 
 # Load anaconda module
-module load anaconda3/default
+module load anaconda3/2023.03/default
 
 # Init conda shell
 conda init tcsh

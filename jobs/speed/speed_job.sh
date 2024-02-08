@@ -13,7 +13,7 @@
 set job_id = $JOB_ID
 
 # Load anaconda module
-module load anaconda3/default
+module load anaconda3/2023.03/default
 
 # Activate conda env
 conda activate /speed-scratch/d_chante/env/dte
