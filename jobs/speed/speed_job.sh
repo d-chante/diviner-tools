@@ -15,12 +15,6 @@ set job_id = $JOB_ID
 # Load anaconda module
 module load anaconda3/2023.03/default
 
-# Init conda shell
-conda init tcsh
-
-# Re-source shell
-source ~/.tcshrc
-
 # Logging env
 env
 
@@ -28,7 +22,7 @@ env
 conda activate /speed-scratch/d_chante/env/dte
 
 # Run preprocessing job
-srun python3 /speed-scratch/d_chante/diviner-tools/scripts/data_preprocess.py \
+python3 /speed-scratch/d_chante/diviner-tools/scripts/data_preprocess.py \
     /speed-scratch/d_chante/diviner-tools/config/speed_cfg.yaml \
     /speed-scratch/d_chante/diviner-tools/support/other/zip_urls.txt \
     ${job_id}
