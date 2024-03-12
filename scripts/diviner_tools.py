@@ -884,3 +884,21 @@ class Utils(object):
 					" Error message: " +repr(e))
 
 		return count
+	
+
+	@public
+	def getAllFilenamesFromDir(self, dir):
+		'''
+		@brief Returns a list of filenames
+
+		@param dir The directory path
+
+		@return A list of filenames
+		'''
+		filenames = []
+
+		for filename in os.listdir(dir):
+			if os.path.isfile(os.path.join(dir, filename)):
+				filenames.append(filename)
+		
+		return filenames
