@@ -54,5 +54,8 @@ def main():
 	for filename in bad_filenames:
 		bad_file_urls += [url for url in zip_urls if filename in url]
 
+	# Pre-process loop
+	dp.preprocess(bad_file_urls)
+
 if __name__ == "__main__":
 	main()
