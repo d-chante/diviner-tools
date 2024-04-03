@@ -1,204 +1,250 @@
-'''
-Areas of Interest
-
-Coordinates are expressed in [latitude, longitude]
-
-Class definitions:
-  1 - thermal anomalies
-  2 - microwave anomalies
-  3 - magnetic anomalies
-  4 - background
-'''
-
+# Areas of Interest
+#
+# Coordinates are expressed in [latitude, longitude]
+#
+# Class definitions:
+#   1 - thermal anomalies
+#   2 - microwave anomalies
+#   3 - magnetic anomalies
+#   4 - background
+#
 areas_of_interest:
-  - name: "Marius-A Crater"
+  - index: 0
+    name: "Marius-A Crater"
     coordinates: [12.58, 313.96]
     class: 1
 
-  - name: "Hell-Q Crater"
+  - index: 1
+    name: "Hell-Q Crater"
     coordinates: [-33.00, 355.53]
     class: 1
 
-  - name: "King Crater"
+  - index: 2
+    name: "King Crater"
     coordinates: [4.91, 120.47]
     class: 1
 
-  - name: "Tycho Crater"
+  - index: 3
+    name: "Tycho Crater"
     coordinates: [-43.29, 348.67]
     class: [1, 2]
 
-  - name: "Aristarchus Crater"
+  - index: 4
+    name: "Aristarchus Crater"
     coordinates: [23.70, 312.52]
     class: [1, 2]
 
-  - name: "Copernicus Crater"
+  - index: 5
+    name: "Copernicus Crater"
     coordinates: [9.60, 339.93]
     class: [1, 2]
 
-  - name: "Giordano Bruno Crater"
+  - index: 6
+    name: "Giordano Bruno Crater"
     coordinates: [35.95, 102.88]
     class: [1, 2]
 
-  - name: "Jackson Crater"
+  - index: 7
+    name: "Jackson Crater"
     coordinates: [21.98, 196.69]
     class: 1
 
-  - name: "Unnamed Region"
+  - index: 8
+    name: "Unnamed Region"
     coordinates: [6.72, 351.97]
     class: 1
 
-  - name: "Aristarchus Pyroclastic Deposit"
+  - index: 9
+    name: "Aristarchus Pyroclastic Deposit"
     coordinates: [26.14, 308.99]
     class: 1
 
-  - name: "Ohm Crater"
+  - index: 10
+    name: "Ohm Crater"
     coordinates: [18.30, 246.29]
     class: 1
 
-  - name: "Zucchius Crater"
+  - index: 11
+    name: "Zucchius Crater"
     coordinates: [-61.39, 309.32]
     class: 1
 
-  - name: "Thales Crater"
+  - index: 12
+    name: "Thales Crater"
     coordinates: [61.70, 50.28]
     class: 1
 
-  - name: "Tsiolkovsky Crater"
+  - index: 13
+    name: "Tsiolkovsky Crater"
     coordinates: [-20.38, 129.03]
     class: 1
 
-  - name: "Chapylgin-B Crater"
+  - index: 14
+    name: "Chapylgin-B Crater"
     coordinates: [-4.08, 151.67]
     class: 1
 
-  - name: "Unnamed Crater 1"
+  - index: 15
+    name: "Unnamed Crater 1"
     coordinates: [-5.40, 90.76]
     class: 1
 
-  - name: "Rydberg Basin"
+  - index: 16
+    name: "Rydberg Basin"
     coordinates: [-46.45, 263.59]
     class: 3
 
-  - name: "Reiner Gamma Swirl"
+  - index: 17
+    name: "Reiner Gamma Swirl"
     coordinates: [7.39, 300.97]
     class: 3
 
-  - name: "Atlas Crater"
+  - index: 18
+    name: "Atlas Crater"
     coordinates: [46.78, 44.50]
     class: 1
 
-  - name: "Unnamed Crater 2"
+  - index: 19
+    name: "Unnamed Crater 2"
     coordinates: [18.68, 121.31]
     class: 1
 
-  - name: "Unnamed Crater 3"
+  - index: 20
+    name: "Unnamed Crater 3"
     coordinates: [-17.69, 144.40]
     class: 1
 
-  - name: "Unnamed Crater 4"
+  - index: 21
+    name: "Unnamed Crater 4"
     coordinates: [-29.74, 120.11]
     class: 1
 
-  - name: "Unnamed Crater 5"
+  - index: 22
+    name: "Unnamed Crater 5"
     coordinates: [-18.93, 69.14]
     class: 1
 
-  - name: "Unnamed Crater 6"
+  - index: 23
+    name: "Unnamed Crater 6"
     coordinates: [5.82, 233.99]
     class: 1
 
-  - name: "Unnamed Crater 7"
+  - index: 24
+    name: "Unnamed Crater 7"
     coordinates: [34.21, 228.28]
     class: 1
 
-  - name: "Cantor Crater"
+  - index: 25
+    name: "Cantor Crater"
     coordinates: [37.98, 118.70]
     class: 2
 
-  - name: "Unnamed Crater 8"
+  - index: 26
+    name: "Unnamed Crater 8"
     coordinates: [32.66, 143.68]
     class: [1, 2]
 
-  - name: "Moore-F Crater"
+  - index: 27
+    name: "Moore-F Crater"
     coordinates: [37.23, 185.05]
     class: 1
 
-  - name: "Egede-A Crater"
+  - index: 28
+    name: "Egede-A Crater"
     coordinates: [51.55, 10.50]
     class: 1
 
-  - name: "Chandler Crater"
+  - index: 29
+    name: "Chandler Crater"
     coordinates: [42.46, 167.70]
     class: 1
 
-  - name: "Furnerius-A Crater"
+  - index: 30
+    name: "Furnerius-A Crater"
     coordinates: [-33.51, 58.92]
     class: 1
 
-  - name: "Rayet-Y Crater"
+  - index: 31
+    name: "Rayet-Y Crater"
     coordinates: [47.19, 113.05]
     class: 1
   
-  - name: "Dugan-J Crater"
+  - index: 32
+    name: "Dugan-J Crater"
     coordinates: [61.45, 107.88]
     class: 1
 
-  - name: "La Condamine-S Crater"
+  - index: 33
+    name: "La Condamine-S Crater"
     coordinates: [57.35, 334.78]
     class: 1
 
-  - name: "Plato-M Crater"
+  - index: 34
+    name: "Plato-M Crater"
     coordinates: [53.08, 344.54]
     class: 1
 
-  - name: "Byrgius-A Crater"
+  - index: 35
+    name: "Byrgius-A Crater"
     coordinates: [-24.57, 296.05]
     class: 1
   
-  - name: "Dawes Crater"
+  - index: 36
+    name: "Dawes Crater"
     coordinates: [17.21, 26.36]
     class: 1
 
-  - name: "Unnamed Crater 9"
+  - index: 37
+    name: "Unnamed Crater 9"
     coordinates: [60.31, 341.33]
     class: 1
 
-  - name: "Unnamed Crater 10"
+  - index: 38
+    name: "Unnamed Crater 10"
     coordinates: [32.40, 89.84]
     class: 1
 
-  - name: "Hommel-B Crater"
+  - index: 39
+    name: "Hommel-B Crater"
     coordinates: [-55.34, 37.79]
     class: 1
 
-  - name: "Unnamed Crater 11"
+  - index: 40
+    name: "Unnamed Crater 11"
     coordinates: [-0.25, 309.53]
     class: 1
 
-  - name: "Compton Crater"
+  - index: 41
+    name: "Compton Crater"
     coordinates: [55.82, 104.44]
     class: 1
 
-  - name: "Crookes Crater"
+  - index: 42
+    name: "Crookes Crater"
     coordinates: [-10.38, 194.98]
     class: 1
 
-  - name: "Pierazzo Crater"
+  - index: 43
+    name: "Pierazzo Crater"
     coordinates: [3.34, 259.69]
     class: 1
 
-  - name: "Das Crater"
+  - index: 44
+    name: "Das Crater"
     coordinates: [-26.50, 222.94]
     class: 1
 
-  - name: "Fechner-T Crater"
+  - index: 45
+    name: "Fechner-T Crater"
     coordinates: [-58.74, 122.80]
     class: 1
 
-  - name: "Fitzgerald Crater"
+  - index: 46
+    name: "Fitzgerald Crater"
     coordinates: [26.62, 187.96]
     class: 4
 
-  - name: "Maksutov Crater"
+  - index: 47
+    name: "Maksutov Crater"
     coordinates: [-40.87, 191.31]
     class: 4
