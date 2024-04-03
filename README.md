@@ -90,7 +90,7 @@ Job ID is a number between 0 and 72 which represents which master batch is pre-p
 
 The resulting database files can be transferred to your local machine using rsync, for example:
 	
-	rsync -avz --progress --partial username@speed.encs.concordia.ca:/speed-scratch/username/diviner_data/database/diviner_data_job_x.db
+	rsync -avz --progress --partial username@speed.encs.concordia.ca:/speed-scratch/username/diviner_data/database/diviner_data_job_x.db /path/to/destination
 
 ### Database
 
