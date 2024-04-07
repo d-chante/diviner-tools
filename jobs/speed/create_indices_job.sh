@@ -21,7 +21,8 @@ conda activate /speed-scratch/d_chante/env/dte
 
 # Run preprocessing job
 python3 /speed-scratch/d_chante/diviner-tools/scripts/create_indices.py \
-    /speed-scratch/d_chante/diviner_data/database
+    /speed-scratch/d_chante/diviner_data/database \
+    /speed-scratch/d_chante/tmp
 
 # Deactivate the environment
 conda deactivate

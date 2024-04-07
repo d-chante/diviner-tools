@@ -13,12 +13,21 @@ import sys
 def main():
 
     # Get DB_DIR from args
-    if len(sys.argv) < 2:
-        print("DB_DIR required")
+    if len(sys.argv) < 3:
+        print("DB_DIR and LOG_DIR required")
         sys.exit(1)
 
     # Directory to databases
     DB_DIR = sys.argv[1]
+
+    # Directory to logs
+    LOG_DIR = sys.argv[2]
+
+    # Configure logger
+    log = open(os.path.join(
+        LOG_DIR, 'create_indices.log'),
+        "w")
+    sys.stdout = log
 
     # Create list of .db files in DB_DIR
     pattern = os.path.join(DB_DIR, '*.db')
@@ -30,11 +39,13 @@ def main():
     dbt = DatabaseTools()
 
     for db in db_files:
-        print("Creating idx_clat_clon for " + db)
+        print("\nCreating idx_clat_clon for " + db)
         dbt.createCoordinateIndex(db)
 
-        print("Creating idx_datetime for " + db + "\n")
+        print("Creating idx_datetime for " + db)
         dbt.createDatetimeIndex(db)
+
+    log.close()
     
 if __name__ == "__main__":
     main()
