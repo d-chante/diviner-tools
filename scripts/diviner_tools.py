@@ -106,7 +106,6 @@ class DivinerPreprocessor(object):
     def __getDatabaseFilepath(self):
         '''
         @brief Returns database filepath
-
         @return A string to the database file
         '''
         return os.path.join(
@@ -116,7 +115,6 @@ class DivinerPreprocessor(object):
     def __getUsefulTabsFilepath(self):
         '''
         @brief Returns database filepath
-
         @return A string to the database file
         '''
         return os.path.join(
@@ -126,7 +124,6 @@ class DivinerPreprocessor(object):
     def __getBadFilesFilepath(self):
         '''
         @brief Returns database filepath
-
         @return A string to the database file
         '''
         return os.path.join(
@@ -136,7 +133,6 @@ class DivinerPreprocessor(object):
     def __getLogFilepath(self):
         '''
         @brief Returns database filepath
-
         @return A string to the database file
         '''
         return os.path.join(
@@ -215,7 +211,6 @@ class DivinerPreprocessor(object):
     def __writeChunk(self, jobs_chunk):
         '''
         @brief Writes a chunk of queued jobs to SQL database
-
         @param jobs_chunk A list containing a chunk of jobs
         '''
         db_connection = None
@@ -267,7 +262,6 @@ class DivinerPreprocessor(object):
     def __createDir(self, data_dir):
         '''
         @brief Creates project directory if it doesn't already exist
-
         @param data_dir The data directory filepath
         '''
         if not os.path.exists(data_dir):
@@ -330,7 +324,6 @@ class DivinerPreprocessor(object):
         @brief	Given a link to a .zip file, this function will
                 download, unpack the .zip file, then delete
                 the original .zip file to minimize storage used
-
         @param local_dir The local directory to save to
         @param zip_url The url to the target .zip file
         '''
@@ -403,9 +396,7 @@ class DivinerPreprocessor(object):
     def __checkParams(self, data):
         '''
         @brief Checks if an RDR table entry matches filter criteria
-
         @param data RDR table entry
-
         @return A boolean on whether or not the data meets criteria
         '''
         # Check the data conforms to the params:
@@ -427,7 +418,6 @@ class DivinerPreprocessor(object):
     def __processLine(self, data):
         '''
         @brief Checks if line is valid before adding to job queue
-
         @param data The text line containing the data entry
         @param 0 or 1 depending if the data was added or not
         '''
@@ -475,7 +465,6 @@ class DivinerPreprocessor(object):
         '''
         @brief	Preprocesses RDR data tables all the way from download
                 to writing to the database
-
         @param url The url of the .zip file containing RDR data
         '''
         tabok = self.__getTab(self.__tmpDir, url)
@@ -525,7 +514,6 @@ class DivinerPreprocessor(object):
     def preprocess(self, data):
         '''
         @brief Initiates the pre-processing loop
-
         @param data A list of zip urls
         '''
         # Log start time
@@ -635,6 +623,7 @@ class DatabaseTools(object):
             if db_connection:
                 db_connection.close()
 
+    @public
     def createDatetimeIndex(self, database_path):
         '''
         @brief Creates an index on Datetime that
@@ -687,6 +676,7 @@ class ProfileGenerator(object):
     def __init__(self):
         pass
 
+    @public
     def getAOICoordinateList(self, filepath):
         '''
         @brief Returns a list of AOI coordinates
@@ -702,6 +692,7 @@ class ProfileGenerator(object):
 
         return coordinates
 
+    @public
     def queryDatetimeRange(self, database_path, start_datetime, end_datetime):
         '''
         @brief Returns entries between dates
@@ -737,6 +728,7 @@ class ProfileGenerator(object):
 
         return rows
 
+    @public
     def getPointBoundaries(self, target_point, distance=200):
         '''
         @brief Returns the min/max of the lat and lon
@@ -759,6 +751,7 @@ class ProfileGenerator(object):
         return round(min_lat, 4), round(max_lat, 4), \
             round(min_lon, 4), round(max_lon, 4)
 
+    @public
     def queryTargetAOI(self, target_aoi):
         '''
         @brief Queries points within a target range around
@@ -808,10 +801,8 @@ class ZipCrawler(object):
     def __getSubUrls(self, parent_url, pattern=None):
         '''
         @brief Returns a list of sub-links on a parent page
-
         @param parent_url The url page that is being searched
         @param pattern A regex pattern if required to filter the url list
-
         @return A list of sub-links on the page
         '''
         try:
@@ -844,7 +835,6 @@ class ZipCrawler(object):
     def __crawl(self, input_urls, pattern=None):
         '''
         @brief Crawls through urls on a page using multithreading
-
         @param input_urls The parent urls to search
         @param pattern Optional regex pattern to match url against
         '''
@@ -914,9 +904,7 @@ class Utils(object):
     def tabToLines(self, src_tab):
         '''
         @brief Parses .TAB file into lines
-
         @param src_tab Source .TAB file
-
         @return A list of strings
         '''
         lines = []
@@ -941,7 +929,6 @@ class Utils(object):
     def txtToList(self, txt_filepath):
         '''
         @brief Generates a list from a textfile
-
         @param txt_filepath The path to the target text file
         '''
         try:
@@ -961,7 +948,6 @@ class Utils(object):
     def appendToFile(self, txt_filepath, data):
         '''
         @brief Appends data to target text file
-
         @param txt_filepath The text file path
         @param data The data to be appended
         '''
@@ -993,10 +979,8 @@ class Utils(object):
     def batch(self, input_list, batch_size):
         '''
         @brief Splits a list into a list of lists of a specified size
-
         @param input_list A list
         @param batch_size The desired size of sub-lists
-
         @return A list of lists
         '''
         return [input_list[i:i + batch_size]
@@ -1010,7 +994,6 @@ class Utils(object):
     def timeStamp(self):
         '''
         @brief Returns current time
-
         @return Time stamp
         '''
         return datetime.now()
@@ -1020,9 +1003,7 @@ class Utils(object):
         '''
         @brief	Determines elapsed time given a start time and prints
                 in human-readable format
-
         @param start_time The start time
-
         @return Time elapsed in string DD:HH:mm:ss
         '''
         end_t = self.timeStamp()
@@ -1048,9 +1029,7 @@ class Utils(object):
         '''
         @brief Returns the number of entries recorded in
                 the useful tabs file
-
         @param filepath The path to the useful tabs file
-
         @return The number of entries recorded
         '''
         count = 0
@@ -1076,9 +1055,7 @@ class Utils(object):
     def countLines(self, filepath):
         '''
         @brief Counts the number of lines in a file
-
         @param filepath The path to the target file
-
         @return The number of lines
         '''
         count = 0
@@ -1102,9 +1079,7 @@ class Utils(object):
     def getAllFilenamesFromDir(self, dir):
         '''
         @brief Returns a list of filenames
-
         @param dir The directory path
-
         @return A list of filenames
         '''
         filenames = []
