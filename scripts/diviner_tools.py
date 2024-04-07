@@ -42,8 +42,8 @@ FIELD = Enum("FIELD",
              start=0)
 
 # Enum for area of interest classes
-AOI = Enum(
-    'AOI',
+AOI_CLASS = Enum(
+    'AOI_CLASS',
     ['THERMAL', 'MICROWAVE', 'MAGNETIC', 'BACKGROUND'],
     start=1)
 
@@ -710,12 +710,12 @@ class ProfileGenerator(object):
             db_cursor = db_connection.cursor()
 
             db_cursor.execute('''
-					 SELECT *
-					 FROM RDR_LVL1_CH7
-					 WHERE DATETIME BETWEEN ? AND ?
-					 ORDER BY DATETIME DESC;
-					 ''',
-                              (start_datetime, end_datetime))
+				SELECT *
+				FROM RDR_LVL1_CH7
+				WHERE DATETIME BETWEEN ? AND ?
+				ORDER BY DATETIME DESC;
+				''',
+                (start_datetime, end_datetime))
 
             rows = db_cursor.fetchall()
 
@@ -770,13 +770,13 @@ class ProfileGenerator(object):
 
             db_cursor = db_connection.cursor()
 
-            db_cursor.execute("""
+            db_cursor.execute('''
                 SELECT *
                 FROM RDR_LVL1_CH7
                 WHERE CLAT BETWEEN ? AND ?
                 AND CLON BETWEEN ? AND ?
-                """,
-                              (min_lat, max_lat, min_lon, max_lon))
+                ''',
+                (min_lat, max_lat, min_lon, max_lon))
 
             rows = db_cursor.fetchall()
 
