@@ -30,7 +30,10 @@ def main():
     dbt = DatabaseTools()
 
     for db in db_files:
+        print("Creating idx_clat_clon for " + db)
         dbt.createCoordinateIndex(db)
+
+        print("Creating idx_datetime for " + db + "\n")
         dbt.createDatetimeIndex(db)
     
 if __name__ == "__main__":
