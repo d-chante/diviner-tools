@@ -18,3 +18,9 @@ transaction_size: 100000
 
 # Max number of thread workers
 max_workers: 32
+
+# Pathway to AOI data directory
+aoi_directory: "/esthar/diviner_data/data/aoi"
+
+# Pathway to profiles directory
+profiles_directory: "/esthar/diviner_data/data/profiles"

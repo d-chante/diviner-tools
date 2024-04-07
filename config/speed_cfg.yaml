@@ -18,3 +18,9 @@ transaction_size: 100000
 
 # Max number of thread workers
 max_workers: 30
+
+# Pathway to AOI data directory
+aoi_directory: "/speed-scratch/d_chante/diviner_data/data/aoi"
+
+# Pathway to profiles directory
+profiles_directory: "/speed-scratch/d_chante/diviner_data/data/profiles"
