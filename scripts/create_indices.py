@@ -7,6 +7,7 @@
 '''
 from diviner_tools import DatabaseTools
 import glob
+import logging
 import os
 import sys
 
@@ -24,10 +25,12 @@ def main():
     LOG_DIR = sys.argv[2]
 
     # Configure logger
-    log = open(os.path.join(
-        LOG_DIR, 'create_indices.log'),
-        "w")
-    sys.stdout = log
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(os.path.join(LOG_DIR, 'create_indices.log')),
+            logging.StreamHandler()])
 
     # Create list of .db files in DB_DIR
     pattern = os.path.join(DB_DIR, '*.db')
@@ -39,13 +42,11 @@ def main():
     dbt = DatabaseTools()
 
     for db in db_files:
-        print("\nCreating idx_clat_clon for " + db)
-        dbt.createCoordinateIndex(db)
+        logging.info("\nCreating idx_clat_clon for " + db)
+        #dbt.createCoordinateIndex(db)
 
-        print("Creating idx_datetime for " + db)
-        dbt.createDatetimeIndex(db)
-
-    log.close()
+        logging.info("Creating idx_datetime for " + db)
+        #dbt.createDatetimeIndex(db)
     
 if __name__ == "__main__":
     main()
