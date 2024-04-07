@@ -4,6 +4,7 @@
 
 @brief Tools to help pre-process diviner data:
 	- DivinerPreprocessor
+	- DatabaseTools
 	- ProfileGenerator
 	- ZipCrawler
 	- Utils
@@ -13,6 +14,7 @@ import concurrent.futures
 from datetime import datetime
 from enum import Enum
 import logging
+import math
 import os
 from public import public
 import requests
@@ -26,6 +28,7 @@ from urllib.parse import urljoin
 import yaml
 from zipfile import ZipFile, BadZipFile
 
+LUNAR_RADIUS_M = 1737400.0
 
 # Enum for data fields
 FIELD = Enum("FIELD",
@@ -37,15 +40,6 @@ FIELD = Enum("FIELD",
 	"CLON", "CEMIS", "CSUNZEN", "CSUNAZI", "CLOCTIME",
 	"QCA", "QGE", "QMI"], 
 	start=0)
-
-# The SQL job template
-# Note: This is not a 1-1 of all data fields
-JOB_TEMPLATE = '''
-	INSERT INTO RDR_LVL1_CH7 (
-		datetime, sundist, sunlat, sunlon, radiance, tb, 
-		clat, clon, cemis, csunzen, csunazi, cloctime 
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	'''
 
 # Enum for area of interest classes
 AOI = Enum(
@@ -238,7 +232,13 @@ class DivinerPreprocessor(object):
 			db_cursor = db_connection.cursor()
 
 			for job in jobs_chunk:
-				db_cursor.execute(JOB_TEMPLATE, job)
+				db_cursor.execute('''
+					  INSERT INTO RDR_LVL1_CH7 (
+					  datetime, sundist, sunlat, sunlon, radiance, tb, 
+					  clat, clon, cemis, csunzen, csunazi, cloctime 
+					  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					  ''', 
+					  job)
 
 			db_connection.commit()
 
@@ -581,14 +581,216 @@ class DivinerPreprocessor(object):
 		logging.info("Number of bad files: " + repr(num_bad))
 
 
+class DatabaseTools(object):
+	'''
+	@brief Tools for managing sqlite databases
+	'''
+	def __init__(self):
+		pass
+		
+	@public
+	def createCoordinateIndex(self, database_path):
+		'''
+		@brief Creates an index on CLAT and CLON that
+			speeds up coordinate-based queries
+		@param database_path The path to the target 
+			database file
+		'''
+		print("Creating index on CLAT, CLON for " + 
+                  database_path)
+
+		print("This may take a while (20+ minutes)...")
+        
+		db_connection = None
+		
+		try:
+			db_connection = sqlite3.connect(database_path)
+
+			db_cursor = db_connection.cursor()
+
+			db_cursor.execute('''
+                CREATE INDEX idx_clat_clon
+                ON RDR_LVL1_CH7 (CLAT, CLON);
+                ''')
+
+			while True:
+				db_cursor.execute("PRAGMA index_info('idx_clat_clon')")
+            
+				index_info = db_cursor.fetchall()
+            
+				if index_info:
+					print("Done")
+					break
+                
+				time.sleep(1)  
+
+		except sqlite3.Error as e:
+			print("Error " + repr(e))
+
+		finally:
+			if db_connection:
+				db_connection.close()
+
+
+	def createDatetimeIndex(self, database_path):
+		'''
+		@brief Creates an index on Datetime that
+			speeds up datetime-based queries
+		@param database_path The path to the target
+			database file
+		'''
+
+		print("Creating index on DATETIME for " + 
+                  database_path)
+
+		print("This may take a while (20+ minutes)...")
+        
+		db_connection = None
+
+		try:
+			db_connection = sqlite3.connect(database_path)
+
+			db_cursor = db_connection.cursor()
+
+			db_cursor.execute('''
+                CREATE INDEX idx_datetime
+                ON RDR_LVL1_CH7 (DATETIME);
+                ''')
+
+			while True:
+				db_cursor.execute("PRAGMA index_info('idx_datetime')")
+            
+				index_info = db_cursor.fetchall()
+            
+				if index_info:
+					print("Done")
+					break
+                
+				time.sleep(1)  
+
+		except sqlite3.Error as e:
+			print("Error " + repr(e))
+
+		finally:
+			if db_connection:
+				db_connection.close()
+
+
 class ProfileGenerator(object):
 	'''
-	@brief A class to generate temperature profiles
+	@brief Generates thermal profiles in preperation for training
 	'''
-
 	def __init__(self):
-		# TODO
 		pass
+
+	def getAOICoordinateList(self, filepath):
+		'''
+		@brief Returns a list of AOI coordinates 
+		@param filepath The path to the yaml file containing
+			AOI data
+		@return a list of coordinate tuples
+		'''
+		with open(filepath, 'r') as file:
+			data = yaml.safe_load(file)
+
+		coordinates = [(entry['coordinates'][0], 
+				  entry['coordinates'][1]) for entry in data['areas_of_interest']]
+
+		return coordinates
+        
+
+	def queryDatetimeRange(self, database_path, start_datetime, end_datetime):
+		'''
+		@brief Returns entries between dates
+		@param database_path Filepath to database object
+		@param start_datetime Start time in format DD-MMM-YYYY HH:mm:SS:sss
+		@param start_datetime End time in format DD-MMM-YYYY HH:mm:SS:sss
+		@return A list of entries
+		'''    
+		db_connection = None
+		rows = list()
+
+		try:
+			db_connection = sqlite3.connect(database_path)
+
+			db_cursor = db_connection.cursor()
+
+			db_cursor.execute('''
+					 SELECT *
+					 FROM RDR_LVL1_CH7
+					 WHERE DATETIME BETWEEN ? AND ?
+					 ORDER BY DATETIME DESC;
+					 ''', 
+					(start_datetime, end_datetime))
+    
+			rows = db_cursor.fetchall()
+
+		except sqlite3.Error as e:
+			print("Error " + repr(e))
+
+		finally:
+			if db_connection:
+				db_connection.close()
+
+		return rows
+        
+
+	def getPointBoundaries(self, target_point, distance=200):
+		'''
+		@brief Returns the min/max of the lat and lon
+			values around a target point within distance
+			Validated against: https://www.lpi.usra.edu/lunar/tools/lunardistancecalc/
+		@param target_point (lat, lon)
+		@param distance The desired distance between
+			min and max points
+		@return min_lat, max_lat, min_lon, max_lon
+		'''
+		distance_radians = distance / LUNAR_RADIUS_M
+
+		min_lat = target_point[0] - math.degrees(distance_radians)
+		max_lat = target_point[0] + math.degrees(distance_radians)
+		min_lon = target_point[1] - math.degrees(distance_radians / math.cos(math.radians(target_point[0])))
+		max_lon = target_point[1] + math.degrees(distance_radians / math.cos(math.radians(target_point[0])))
+
+		return round(min_lat, 4), round(max_lat, 4), \
+			round(min_lon, 4), round(max_lon, 4)
+        
+
+	def queryTargetAOI(self, target_aoi):
+		'''
+		@brief Queries points within a target range around
+			a target area of interest coordinate
+		@param target_aoi A tuple of the (lat, lon) coordinate
+		@return A list of entries
+		'''
+		min_lat, max_lat, min_lon, max_lon = self.getPointBoundaries(target_aoi)
+        
+		db_connection = None
+		rows = list()
+
+		try:
+			db_connection = sqlite3.connect(database_path)
+
+			db_cursor = db_connection.cursor()
+
+			db_cursor.execute("""
+                SELECT *
+                FROM RDR_LVL1_CH7
+                WHERE CLAT BETWEEN ? AND ? 
+                AND CLON BETWEEN ? AND ?
+                """,
+                (min_lat, max_lat, min_lon, max_lon))
+    
+			rows = db_cursor.fetchall()
+
+		except sqlite3.Error as e:
+			print("Error " + repr(e))
+
+		finally:
+			if db_connection:
+				db_connection.close()
+
+		return rows
 
 
 class ZipCrawler(object):
