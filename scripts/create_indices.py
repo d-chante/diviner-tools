@@ -6,10 +6,23 @@
     indices for the target databases
 '''
 from diviner_tools import DatabaseTools
+import concurrent.futures
 import glob
 import logging
 import os
 import sys
+
+
+def createIndicesThread(db):
+
+    dbt = DatabaseTools()
+
+    logging.info("Creating idx_clat_clon for " + db)
+    dbt.createCoordinateIndex(db)
+
+    logging.info("Creating idx_datetime for " + db)
+    dbt.createDatetimeIndex(db)
+
 
 def main():
 
@@ -39,14 +52,13 @@ def main():
     # For each db, create indices:
     #   - idx_clat_clon
     #   - idx_datetime
-    dbt = DatabaseTools()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
 
-    for db in db_files:
-        logging.info("\nCreating idx_clat_clon for " + db)
-        #dbt.createCoordinateIndex(db)
+        futures = [executor.submit(createIndicesThread, db) for db in db_files]
 
-        logging.info("Creating idx_datetime for " + db)
-        #dbt.createDatetimeIndex(db)
-    
+        results = [future.result()
+                   for future in concurrent.futures.as_completed(futures)]
+
+
 if __name__ == "__main__":
     main()
