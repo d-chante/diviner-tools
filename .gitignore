@@ -2,3 +2,5 @@
 **/.DS_Store
 **/._*
 **/__init__.py
+**/.ipynb_checkpoints
+**/*.ipynb
