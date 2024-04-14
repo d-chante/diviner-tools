@@ -83,21 +83,21 @@ class DivinerPreprocessor(object):
         # Max number of thread workers
         self.__maxWorkers = self.__cfg['max_workers']
 
+        # Create utils object
+        self.ut = Utils()
+
         # Create directories if they don't exist
-        self.__createDir(self.__dbDir)
-        self.__createDir(self.__tmpDir)
-        self.__createDir(self.__usefulTabsDir)
-        self.__createDir(self.__badFilesDir)
-        self.__createDir(self.__logDir)
+        self.ut.createDirectory(self.__dbDir)
+        self.ut.createDirectory(self.__tmpDir)
+        self.ut.createDirectory(self.__usefulTabsDir)
+        self.ut.createDirectory(self.__badFilesDir)
+        self.ut.createDirectory(self.__logDir)
 
         # Configure logger
         self.__configLogger()
 
         # Create database if it doesn't exist yet
         self.__createDatabase()
-
-        # Create utils object
-        self.ut = Utils()
 
     # * * * * * * * * * * * * * * * * * * * * * * * * *
     # FILEPATHS
@@ -256,20 +256,8 @@ class DivinerPreprocessor(object):
         logging.info("Logging started: " + repr(self.__getLogFilepath()))
 
     # * * * * * * * * * * * * * * * * * * * * * * * * *
-    # FILE/DIRECTORY MANAGEMENT
+    # DATABASE MANAGEMENT
     # * * * * * * * * * * * * * * * * * * * * * * * * *
-
-    def __createDir(self, data_dir):
-        '''
-        @brief Creates project directory if it doesn't already exist
-        @param data_dir The data directory filepath
-        '''
-        if not os.path.exists(data_dir):
-            try:
-                os.makedirs(data_dir)
-
-            except Exception as e:
-                logging.error("Unable to create directory: " + repr(data_dir))
 
     def __createDatabase(self):
         '''
@@ -668,30 +656,123 @@ class DatabaseTools(object):
                 db_connection.close()
 
 
-class ProfileGenerator(object):
-    '''
-    @brief Generates thermal profiles in preperation for training
-    '''
+class AreaOfInterest(object):
 
-    def __init__(self):
-        pass
-
-    @public
-    def getAOICoordinateList(self, filepath):
+    def __init__(self, id, name, filename, coordinates, aoi_class):
         '''
-        @brief Returns a list of AOI coordinates
-        @param filepath The path to the yaml file containing
-                AOI data
-        @return a list of coordinate tuples
+        @brief Data structure to hold AOI information
+        @param id A numerical id value
+        @param name Name of the AOI
+        @param filename Filename in format {index}_{name}
+        @param coordinates Lat and Lon coordinates
+        @param aoi_class The type of AOI
+        '''
+        self.id = id
+        self.name = name
+        self.filename = filename
+        self.coordinates = coordinates
+        self.aoi_class = aoi_class
+
+
+class ProfileGenerator(object):
+
+    def __init__(self, cfg_filepath, aoi_filepath):
+        '''
+        @brief Generates thermal profiles in preperation for training
+        @param cfg_filepath The path to the config yaml
+        @param aoi_filepath The path to the AOI data
+        '''
+        self.__initConfig(cfg_filepath)
+        self.__initAOI(aoi_filepath)
+        self.__initLog(self.__logDir)
+
+    def __initConfig(self, cfg_filepath):
+        '''
+        @brief Loads config params from a YAML file
+        @param cfg_filepath The path to the config YAML
+        '''
+        # Extract generic configs
+        with open(cfg_filepath, 'r') as file:
+            self.__cfg = yaml.safe_load(file)
+
+        # Pathway to databases directory
+        self.__dbDir = self.__cfg["database_directory"]
+
+        # Pathway to log directory
+        self.__logDir = self.__cfg["log_directory"]
+
+        # Pathway to aoi directory
+        self.__aoiDir = self.__cfg["aoi_directory"]
+
+        # Pathway to profiles directory
+        self.__profilesDir = self.__cfg["profiles_directory"]
+
+        # Create utils object
+        self.ut = Utils()
+
+        # Create directories if they don't exist
+        self.ut.createDirectory(self.__aoiDir)
+        self.ut.createDirectory(self.__profilesDir)
+
+    def __initLog(self, log_dir):
+        '''
+        @brief Configures logger
+        @param log_dir Path to log directory
+        '''
+        log_filepath = os.path.join(
+            log_dir,
+            "profile_generator_{0}.log".format(
+            datetime.now().strftime('%Y-%m-%d_%H%M')))
+
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler(log_filepath),
+                logging.StreamHandler()])
+
+        logging.info("Logging started: " + log_filepath)
+
+    def __initAOI(self, aoi_filepath):
+        '''
+        @brief Loads AOI data
+        @param aoi_filepath Path to AOI information
+        '''
+        self.aoi_data = self.__readAOIData(aoi_filepath)
+
+    def __readAOIData(self, filepath):
+        '''
+        @brief Reads AOI data from YAML
+        @param filepath Path to AOI YAML file
         '''
         with open(filepath, 'r') as file:
             data = yaml.safe_load(file)
 
-        coordinates = [(entry['coordinates'][0], entry['coordinates'][1])
-                       for entry in data['areas_of_interest']]
+        aoi_data = data['areas_of_interest']
 
-        return coordinates
+        aoi_list = []
 
+        for entry in aoi_data:
+            id = entry["id"]
+            name = entry["name"]
+            filename = f"{repr(id)}_{name.replace(' ', '_').replace('-', '_').lower()}"
+            coordinates = entry["coordinates"]
+            aoi_class =entry["class"]
+
+            tmp = AreaOfInterest(id, name, filename, coordinates, aoi_class)
+
+            aoi_list.append(tmp)
+
+        return aoi_list
+    
+    @public
+    def getAreasOfInterest(self):
+        '''
+        @brief returns AOI data in a list
+        @return List containing AreaOfInterest objects
+        '''
+        return self.aoi_data
+    
     @public
     def queryDatetimeRange(self, database_path, start_datetime, end_datetime):
         '''
@@ -752,7 +833,7 @@ class ProfileGenerator(object):
             round(min_lon, 4), round(max_lon, 4)
 
     @public
-    def queryTargetAOI(self, target_aoi):
+    def queryTargetAOI(self, target_aoi, db_path):
         '''
         @brief Queries points within a target range around
                 a target area of interest coordinate
@@ -766,7 +847,7 @@ class ProfileGenerator(object):
         rows = list()
 
         try:
-            db_connection = sqlite3.connect(database_path)
+            db_connection = sqlite3.connect(db_path)
 
             db_cursor = db_connection.cursor()
 
@@ -788,6 +869,40 @@ class ProfileGenerator(object):
                 db_connection.close()
 
         return rows
+    
+    def __findTargetRows(self, target):
+        '''
+        @brief
+        @param target AreaOfInterest object
+        '''
+        # Get all database names
+        db_list = self.ut.getAllFilenamesFromDir(self.__dbDir)
+        db_list = db_list[0:2]
+
+        rows = []
+
+        # Query each database
+        # TODO: threads
+        for db in db_list:
+            logging.info("[{0}] Querying {1}".format(target.name, db))
+            rows += self.queryTargetAOI(
+                target.coordinates, 
+                os.path.join(self.__dbDir, db))
+
+        # Write data to txt file
+        if len(rows) != 0:
+            self.ut.appendToFile(
+                os.path.join(self.__aoiDir, target.filename + ".txt"),
+                rows)
+
+        logging.info("[{0}] Total entries: {1}".format(target.name, repr(len(rows))))
+
+    @public
+    def GenerateProfiles(self):
+        '''
+        '''
+        for target in self.aoi_data:
+            self.__findTargetRows(target)
 
 
 class ZipCrawler(object):
@@ -962,9 +1077,21 @@ class Utils(object):
                     repr(txt_filepath) +
                     " Error message: " +
                     repr(e))
-
+                
+        # Appending a list of tuples
+        elif isinstance(data, list) and isinstance(data[0], tuple):
+            try:
+                with open(txt_filepath, 'a') as file:
+                    file.writelines('\n'.join(map(str, data)))
+            except IOError as e:
+                logging.error(
+                    "Unable to write to file: " +
+                    repr(txt_filepath) +
+                    " Error message: " +
+                    repr(e))
+                
         # Appending a list of strings
-        elif isinstance(data, list):
+        elif isinstance(data, list) and isinstance(data[0], str):
             try:
                 with open(txt_filepath, 'a') as file:
                     file.writelines('\n'.join(data))
@@ -1089,3 +1216,31 @@ class Utils(object):
                 filenames.append(filename)
 
         return filenames
+    
+    @public
+    def createDirectory(self, data_dir):
+        '''
+        @brief Creates project directory if it doesn't already exist
+        @param data_dir The data directory filepath
+        '''
+        if not os.path.exists(data_dir):
+            try:
+                os.makedirs(data_dir)
+
+            except Exception as e:
+                logging.error("Unable to create directory: " + repr(data_dir))
+
+    @public
+    def createFile(self, filepath):
+        '''
+        @brief Creates a file if it doesn't already exist
+        @param filepath The fulle name and path of target file
+        '''
+        if not os.path.exists(filepath):
+            try:
+                with open(filepath, 'w'):
+                    pass
+
+            except Exception as e:
+                logging.error("Unable to create file: " + repr(filepath))
+
