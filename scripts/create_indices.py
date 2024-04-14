@@ -18,10 +18,10 @@ def createIndicesThread(db):
     dbt = DatabaseTools()
 
     logging.info("Creating idx_clat_clon for " + db)
-    dbt.createCoordinateIndex(db)
+    dbt.createIndex(db, "idx_clat_clon", ["CLAT", "CLON"])
 
     logging.info("Creating idx_datetime for " + db)
-    dbt.createDatetimeIndex(db)
+    dbt.createIndex(db, "idx_datetime", ["DATETIME"])
 
 
 def main():

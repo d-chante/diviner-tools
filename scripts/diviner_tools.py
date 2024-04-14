@@ -30,7 +30,7 @@ from zipfile import ZipFile, BadZipFile
 
 LUNAR_RADIUS_M = 1737400.0
 
-# Enum for data fields
+# Data fields as per Diviner SRS
 FIELD = Enum("FIELD",
              ["DATE", "UTC", "JDATE", "ORBIT", "SUNDIST",
               "SUNLAT", "SUNLON", "SCLK", "SCLAT", "SCLON",
@@ -40,6 +40,13 @@ FIELD = Enum("FIELD",
               "CLON", "CEMIS", "CSUNZEN", "CSUNAZI", "CLOCTIME",
               "QCA", "QGE", "QMI"],
              start=0)
+
+# Data fields for AOIs
+AOI_FIELD = Enum("AOI_FIELD",
+                 ["DATETIME", "SUNDIST", "SUNLAT",
+                  "SUNLON", "RADIANCE", "TB", "CLAT", "CLON",
+                  "CEMIS", "CSUNZEN", "CSUNAZI", "CLOCTIME"],
+                 start=1)
 
 # Enum for area of interest classes
 AOI_CLASS = Enum(
@@ -569,17 +576,52 @@ class DatabaseTools(object):
         pass
 
     @public
-    def createCoordinateIndex(self, database_path):
+    def createTable(self, database_path, table_name, schema):
         '''
-        @brief Creates an index on CLAT and CLON that
-                speeds up coordinate-based queries
+        @brief Create table in a database
+        @param database_path Path to database
+        @param table_name Name of table
+        @param schema SQL table def
+        '''
+        db_connection = None
+
+        try:
+            db_connection = sqlite3.connect(database_path)
+
+            db_cursor = db_connection.cursor()
+
+            table_query = f'CREATE TABLE IF NOT EXISTS {table_name} ({schema})'
+            db_cursor.execute(table_query)
+
+            # Turn off PRAGMA synch to speed up writing
+            # Note: this has a higher risk of data being corrupted
+            # but hopefully since this database should only need
+            # to be populated once, this is an okay risk.
+            db_cursor.execute("PRAGMA synchronous = OFF;")
+
+            db_connection.commit()
+
+        except sqlite3.Error as e:
+            logging.error("Unable to create table, will exit: " + repr(e))
+            sys.exit(1)
+
+        finally:
+            if db_connection:
+                db_connection.close()
+
+    @public
+    def createIndex(self, database_path, index_name, columns):
+        '''
+        @brief Creates an index on specified columns to speed
+            up queries
         @param database_path The path to the target
                 database file
+        @param index_name Name of index
+        @param columns A list of columns
         '''
-        print("Creating index on CLAT, CLON for " +
-              database_path)
-
-        print("This may take a while (20+ minutes)...")
+        logging.info("Creating index {} on {} for {}".format(
+            index_name, columns, database_path))
+        logging.info("This may take a while (20+ minutes)...")
 
         db_connection = None
 
@@ -588,13 +630,12 @@ class DatabaseTools(object):
 
             db_cursor = db_connection.cursor()
 
-            db_cursor.execute('''
-                CREATE INDEX idx_clat_clon
-                ON RDR_LVL1_CH7 (CLAT, CLON);
-                ''')
+            index_query = "CREATE INDEX {} ON RDR_LVL1_CH7 ({})".format(
+                index_name, ", ".join(columns))
+            db_cursor.execute(index_query)
 
             while True:
-                db_cursor.execute("PRAGMA index_info('idx_clat_clon')")
+                db_cursor.execute("PRAGMA index_info('{}')".format(index_name))
 
                 index_info = db_cursor.fetchall()
 
@@ -612,45 +653,57 @@ class DatabaseTools(object):
                 db_connection.close()
 
     @public
-    def createDatetimeIndex(self, database_path):
+    def query(self, database_path, query):
         '''
-        @brief Creates an index on Datetime that
-                speeds up datetime-based queries
-        @param database_path The path to the target
-                database file
+        @brief Queries target database
+        @param database_path Filepath to database
+        @param query SQL query
+        @return Rows of matching entries
         '''
-
-        print("Creating index on DATETIME for " +
-              database_path)
-
-        print("This may take a while (20+ minutes)...")
-
         db_connection = None
+        rows = []
 
         try:
             db_connection = sqlite3.connect(database_path)
 
             db_cursor = db_connection.cursor()
 
-            db_cursor.execute('''
-                CREATE INDEX idx_datetime
-                ON RDR_LVL1_CH7 (DATETIME);
-                ''')
+            db_cursor.execute(query)
 
-            while True:
-                db_cursor.execute("PRAGMA index_info('idx_datetime')")
-
-                index_info = db_cursor.fetchall()
-
-                if index_info:
-                    print("Done")
-                    break
-
-                time.sleep(1)
+            rows = db_cursor.fetchall()
 
         except sqlite3.Error as e:
             print("Error " + repr(e))
 
+        finally:
+            if db_connection:
+                db_connection.close()
+
+        return rows
+
+    @public
+    def insert(self, database_path, queries):
+        '''
+        @brief Inserts data into database
+        @param database_path Filepath to database
+        @param queries A list of query tuples
+        '''
+        db_connection = None
+
+        try:
+            db_connection = sqlite3.connect(database_path)
+            db_cursor = db_connection.cursor()
+
+            for query, params in queries:
+                db_cursor.execute(query, params)
+
+            db_connection.commit()
+
+        except sqlite3.Error as e:
+            print("Error:", e)
+
+            if db_connection:
+                db_connection.rollback()
         finally:
             if db_connection:
                 db_connection.close()
@@ -682,6 +735,9 @@ class ProfileGenerator(object):
         @param cfg_filepath The path to the config yaml
         @param aoi_filepath The path to the AOI data
         '''
+        self.ut = Utils()
+        self.dbt = DatabaseTools()
+
         self.__initConfig(cfg_filepath)
         self.__initAOI(aoi_filepath)
         self.__initLog(self.__logDir)
@@ -701,14 +757,14 @@ class ProfileGenerator(object):
         # Pathway to log directory
         self.__logDir = self.__cfg["log_directory"]
 
+        # Max workers for threads
+        self.__maxWorkers = self.__cfg["max_workers"]
+
         # Pathway to aoi directory
         self.__aoiDir = self.__cfg["aoi_directory"]
 
         # Pathway to profiles directory
         self.__profilesDir = self.__cfg["profiles_directory"]
-
-        # Create utils object
-        self.ut = Utils()
 
         # Create directories if they don't exist
         self.ut.createDirectory(self.__aoiDir)
@@ -722,7 +778,7 @@ class ProfileGenerator(object):
         log_filepath = os.path.join(
             log_dir,
             "profile_generator_{0}.log".format(
-            datetime.now().strftime('%Y-%m-%d_%H%M')))
+                datetime.now().strftime('%Y-%m-%d_%H%M')))
 
         logging.basicConfig(
             level=logging.DEBUG,
@@ -755,16 +811,16 @@ class ProfileGenerator(object):
         for entry in aoi_data:
             id = entry["id"]
             name = entry["name"]
-            filename = f"{repr(id)}_{name.replace(' ', '_').replace('-', '_').lower()}"
+            filename = name.replace(' ', '_').replace('-', '_').upper()
             coordinates = entry["coordinates"]
-            aoi_class =entry["class"]
+            aoi_class = entry["class"]
 
             tmp = AreaOfInterest(id, name, filename, coordinates, aoi_class)
 
             aoi_list.append(tmp)
 
         return aoi_list
-    
+
     @public
     def getAreasOfInterest(self):
         '''
@@ -772,45 +828,8 @@ class ProfileGenerator(object):
         @return List containing AreaOfInterest objects
         '''
         return self.aoi_data
-    
-    @public
-    def queryDatetimeRange(self, database_path, start_datetime, end_datetime):
-        '''
-        @brief Returns entries between dates
-        @param database_path Filepath to database object
-        @param start_datetime Start time in format DD-MMM-YYYY HH:mm:SS:sss
-        @param start_datetime End time in format DD-MMM-YYYY HH:mm:SS:sss
-        @return A list of entries
-        '''
-        db_connection = None
-        rows = list()
 
-        try:
-            db_connection = sqlite3.connect(database_path)
-
-            db_cursor = db_connection.cursor()
-
-            db_cursor.execute('''
-				SELECT *
-				FROM RDR_LVL1_CH7
-				WHERE DATETIME BETWEEN ? AND ?
-				ORDER BY DATETIME DESC;
-				''',
-                (start_datetime, end_datetime))
-
-            rows = db_cursor.fetchall()
-
-        except sqlite3.Error as e:
-            print("Error " + repr(e))
-
-        finally:
-            if db_connection:
-                db_connection.close()
-
-        return rows
-
-    @public
-    def getPointBoundaries(self, target_point, distance=200):
+    def __getPointBoundaries(self, target_point, distance=200):
         '''
         @brief Returns the min/max of the lat and lon
                 values around a target point within distance
@@ -832,77 +851,116 @@ class ProfileGenerator(object):
         return round(min_lat, 4), round(max_lat, 4), \
             round(min_lon, 4), round(max_lon, 4)
 
-    @public
-    def queryTargetAOI(self, target_aoi, db_path):
+    def __queryTargetAOI(self, target_aoi, db_path):
         '''
         @brief Queries points within a target range around
                 a target area of interest coordinate
         @param target_aoi A tuple of the (lat, lon) coordinate
         @return A list of entries
         '''
-        min_lat, max_lat, min_lon, max_lon = self.getPointBoundaries(
+        min_lat, max_lat, min_lon, max_lon = self.__getPointBoundaries(
             target_aoi)
 
-        db_connection = None
-        rows = list()
-
-        try:
-            db_connection = sqlite3.connect(db_path)
-
-            db_cursor = db_connection.cursor()
-
-            db_cursor.execute('''
+        query = '''
                 SELECT *
                 FROM RDR_LVL1_CH7
-                WHERE CLAT BETWEEN ? AND ?
-                AND CLON BETWEEN ? AND ?
-                ''',
-                (min_lat, max_lat, min_lon, max_lon))
+                WHERE CLAT BETWEEN {} AND {}
+                AND CLON BETWEEN {} AND {}
+                '''.format(min_lat, max_lat, min_lon, max_lon)
 
-            rows = db_cursor.fetchall()
-
-        except sqlite3.Error as e:
-            print("Error " + repr(e))
-
-        finally:
-            if db_connection:
-                db_connection.close()
+        rows = self.dbt.query(db_path, query)
 
         return rows
-    
+
+    def __createAOITable(self, database_path, table_name):
+        '''
+        '''
+        schema = '''
+            id INTEGER PRIMARY KEY,
+            datetime TEXT,
+            sundist REAL,
+            sunlat REAL,
+            sunlon REAL,
+            radiance REAL,
+            tb REAL,
+            clat REAL,
+            clon REAL,
+            cemis REAL,
+            csunzen REAL,
+            csunazi REAL,
+            cloctime REAL
+            '''
+
+        self.dbt.createTable(database_path, table_name, schema)
+
+    def __insertAOI(self, database_path, table_name, data):
+        '''
+        '''
+        queries = []
+
+        for row in data:
+            query = f"INSERT INTO {table_name} " + \
+                    "(datetime, sundist, sunlat, sunlon, " + \
+                    "radiance, tb, clat, clon, cemis, " + \
+                    "csunzen, csunazi, cloctime) " + \
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            queries.append((query, row))
+
+        self.dbt.insert(database_path, queries)
+
     def __findTargetRows(self, target):
         '''
-        @brief
+        @brief TODO
         @param target AreaOfInterest object
         '''
-        # Get all database names
+        logging.info("[{0}] Start".format(target.name))
+
         db_list = self.ut.getAllFilenamesFromDir(self.__dbDir)
-        db_list = db_list[0:2]
 
         rows = []
 
-        # Query each database
-        # TODO: threads
-        for db in db_list:
-            logging.info("[{0}] Querying {1}".format(target.name, db))
-            rows += self.queryTargetAOI(
-                target.coordinates, 
-                os.path.join(self.__dbDir, db))
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=self.__maxWorkers) as executor:
 
-        # Write data to txt file
+            futures = [executor.submit(
+                self.__queryTargetAOI,
+                target.coordinates,
+                os.path.join(self.__dbDir, db)) for db in db_list]
+
+            for future in concurrent.futures.as_completed(futures):
+                rows += future.result()
+
         if len(rows) != 0:
-            self.ut.appendToFile(
-                os.path.join(self.__aoiDir, target.filename + ".txt"),
-                rows)
+            logging.info(
+                "[{0}] Inserting entries into database".format(
+                    target.name))
+            db_path = os.path.join(self.__aoiDir, "aoi.db")
+            rows = [row[1:] for row in rows]
 
-        logging.info("[{0}] Total entries: {1}".format(target.name, repr(len(rows))))
+            self.__createAOITable(db_path, target.filename)
+            self.__insertAOI(db_path, target.filename, rows)
+
+        logging.info(
+            "[{0}] Total entries: {1}".format(
+                target.name, repr(
+                    len(rows))))
 
     @public
-    def GenerateProfiles(self):
+    def collectData(self):
         '''
+        @brief Searches and saves AOI data
         '''
         for target in self.aoi_data:
             self.__findTargetRows(target)
+
+        logging.info("Done")
+
+    @public
+    def generateProfiles(self):
+        '''
+        @brief TODO
+        '''
+        pass
 
 
 class ZipCrawler(object):
@@ -1077,7 +1135,7 @@ class Utils(object):
                     repr(txt_filepath) +
                     " Error message: " +
                     repr(e))
-                
+
         # Appending a list of tuples
         elif isinstance(data, list) and isinstance(data[0], tuple):
             try:
@@ -1089,7 +1147,7 @@ class Utils(object):
                     repr(txt_filepath) +
                     " Error message: " +
                     repr(e))
-                
+
         # Appending a list of strings
         elif isinstance(data, list) and isinstance(data[0], str):
             try:
@@ -1216,7 +1274,7 @@ class Utils(object):
                 filenames.append(filename)
 
         return filenames
-    
+
     @public
     def createDirectory(self, data_dir):
         '''
@@ -1243,4 +1301,3 @@ class Utils(object):
 
             except Exception as e:
                 logging.error("Unable to create file: " + repr(filepath))
-
