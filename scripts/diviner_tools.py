@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 import concurrent.futures
 from datetime import datetime
 from enum import Enum
+from itertools import chain
 import logging
 import math
 import os
@@ -913,9 +914,8 @@ class ProfileGenerator(object):
         @brief TODO
         @param target AreaOfInterest object
         '''
-        logging.info("[{0}] Start".format(target.name))
-
         db_list = self.ut.getAllFilenamesFromDir(self.__dbDir)
+        db_list = db_list[0:2]
 
         rows = []
 
@@ -926,15 +926,16 @@ class ProfileGenerator(object):
                 self.__queryTargetAOI,
                 target.coordinates,
                 os.path.join(self.__dbDir, db)) for db in db_list]
+            
+            results = [future.result() 
+                       for future in concurrent.futures.as_completed(futures)]
 
-            for future in concurrent.futures.as_completed(futures):
-                rows += future.result()
+            rows = list(chain.from_iterable(results))
 
         if len(rows) != 0:
-            logging.info(
-                "[{0}] Inserting entries into database".format(
-                    target.name))
             db_path = os.path.join(self.__aoiDir, "aoi.db")
+
+            # Remove col 0 which is ID
             rows = [row[1:] for row in rows]
 
             self.__createAOITable(db_path, target.filename)
