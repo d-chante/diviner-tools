@@ -915,7 +915,6 @@ class ProfileGenerator(object):
         @param target AreaOfInterest object
         '''
         db_list = self.ut.getAllFilenamesFromDir(self.__dbDir)
-        db_list = db_list[0:2]
 
         rows = []
 
