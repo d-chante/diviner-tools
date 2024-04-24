@@ -30,6 +30,9 @@ import yaml
 from zipfile import ZipFile, BadZipFile
 
 LUNAR_RADIUS_M = 1737400.0
+KM_TO_M = 1000.0
+
+LLA = Enum("LLA", ["LAT", "LON", "ALT"], start=0)
 
 # Data fields as per Diviner SRS
 FIELD = Enum("FIELD",
@@ -712,7 +715,7 @@ class DatabaseTools(object):
 
 class AreaOfInterest(object):
 
-    def __init__(self, id, name, filename, coordinates, aoi_class):
+    def __init__(self, id, name, filename, coordinates, aoi_class, size):
         '''
         @brief Data structure to hold AOI information
         @param id A numerical id value
@@ -720,12 +723,14 @@ class AreaOfInterest(object):
         @param filename Filename in format {index}_{name}
         @param coordinates Lat and Lon coordinates
         @param aoi_class The type of AOI
+        @param size The size of the AOI in km
         '''
         self.id = id
         self.name = name
         self.filename = filename
         self.coordinates = coordinates
         self.aoi_class = aoi_class
+        self.size = size
 
 
 class ProfileGenerator(object):
@@ -815,8 +820,9 @@ class ProfileGenerator(object):
             filename = name.replace(' ', '_').replace('-', '_').upper()
             coordinates = entry["coordinates"]
             aoi_class = entry["class"]
+            size = entry["size"]
 
-            tmp = AreaOfInterest(id, name, filename, coordinates, aoi_class)
+            tmp = AreaOfInterest(id, name, filename, coordinates, aoi_class, size)
 
             aoi_list.append(tmp)
 
@@ -830,37 +836,54 @@ class ProfileGenerator(object):
         '''
         return self.aoi_data
 
-    def __getPointBoundaries(self, target_point, distance=200):
+    @public
+    def getPointBoundaries(self, target_point, distance=200):
         '''
         @brief Returns the min/max of the lat and lon
                 values around a target point within distance
                 Validated against: https://www.lpi.usra.edu/lunar/tools/lunardistancecalc/
         @param target_point (lat, lon)
         @param distance The desired distance between
-                min and max points
+                min and max points in meters
         @return min_lat, max_lat, min_lon, max_lon
         '''
-        distance_radians = distance / LUNAR_RADIUS_M
+        # For sizes expressed as an area
+        if isinstance(distance, list):
+            distance_lat = distance[LLA.LAT.value] / LUNAR_RADIUS_M
+            distance_lon = distance[LLA.LON.value] / LUNAR_RADIUS_M
 
-        min_lat = target_point[0] - math.degrees(distance_radians)
-        max_lat = target_point[0] + math.degrees(distance_radians)
-        min_lon = target_point[1] - math.degrees(
-            distance_radians / math.cos(math.radians(target_point[0])))
-        max_lon = target_point[1] + math.degrees(
-            distance_radians / math.cos(math.radians(target_point[0])))
+            min_lat = target_point[LLA.LAT.value] - math.degrees(distance_lat)
+            max_lat = target_point[LLA.LAT.value] + math.degrees(distance_lat)
 
+            min_lon = target_point[LLA.LON.value] - math.degrees(
+                distance_lon / math.cos(math.radians(target_point[LLA.LAT.value])))
+            max_lon = target_point[LLA.LON.value] + math.degrees(
+                distance_lon / math.cos(math.radians(target_point[LLA.LAT.value])))
+
+        # For sizes expressed as diameter
+        else:
+            distance_radians = distance / LUNAR_RADIUS_M
+
+            min_lat = target_point[LLA.LAT.value] - math.degrees(distance_radians)
+            max_lat = target_point[LLA.LAT.value] + math.degrees(distance_radians)
+            min_lon = target_point[LLA.LON.value] - math.degrees(
+                distance_radians / math.cos(math.radians(target_point[LLA.LAT.value])))
+            max_lon = target_point[LLA.LON.value] + math.degrees(
+                distance_radians / math.cos(math.radians(target_point[LLA.LAT.value])))
+
+        
         return round(min_lat, 4), round(max_lat, 4), \
             round(min_lon, 4), round(max_lon, 4)
 
-    def __queryTargetAOI(self, target_aoi, db_path):
+    def __queryTargetAOI(self, target_aoi, distance, db_path):
         '''
         @brief Queries points within a target range around
                 a target area of interest coordinate
         @param target_aoi A tuple of the (lat, lon) coordinate
         @return A list of entries
         '''
-        min_lat, max_lat, min_lon, max_lon = self.__getPointBoundaries(
-            target_aoi)
+        min_lat, max_lat, min_lon, max_lon = self.getPointBoundaries(
+            target_aoi, distance)
 
         query = '''
                 SELECT *
@@ -916,6 +939,13 @@ class ProfileGenerator(object):
         '''
         db_list = self.ut.getAllFilenamesFromDir(self.__dbDir)
 
+        if isinstance(target.size, list):
+            distance = [
+                (target.size(LLA.LAT.value)/2) * KM_TO_M,
+                (target.size(LLA.LON.value)/2) * KM_TO_M]
+        else:
+            distance = (target.size/2) * KM_TO_M
+
         rows = []
 
         with concurrent.futures.ThreadPoolExecutor(
@@ -924,6 +954,7 @@ class ProfileGenerator(object):
             futures = [executor.submit(
                 self.__queryTargetAOI,
                 target.coordinates,
+                distance,
                 os.path.join(self.__dbDir, db)) for db in db_list]
             
             results = [future.result() 
