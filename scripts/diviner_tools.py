@@ -944,8 +944,8 @@ class ProfileGenerator(object):
 
         if isinstance(target.size, list):
             distance = [
-                (target.size(LLA.LAT.value) / 2) * KM_TO_M,
-                (target.size(LLA.LON.value) / 2) * KM_TO_M]
+                (target.size[LLA.LAT.value] / 2) * KM_TO_M,
+                (target.size[LLA.LON.value] / 2) * KM_TO_M]
         else:
             distance = (target.size / 2) * KM_TO_M
 
