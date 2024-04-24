@@ -822,7 +822,8 @@ class ProfileGenerator(object):
             aoi_class = entry["class"]
             size = entry["size"]
 
-            tmp = AreaOfInterest(id, name, filename, coordinates, aoi_class, size)
+            tmp = AreaOfInterest(
+                id, name, filename, coordinates, aoi_class, size)
 
             aoi_list.append(tmp)
 
@@ -864,14 +865,15 @@ class ProfileGenerator(object):
         else:
             distance_radians = distance / LUNAR_RADIUS_M
 
-            min_lat = target_point[LLA.LAT.value] - math.degrees(distance_radians)
-            max_lat = target_point[LLA.LAT.value] + math.degrees(distance_radians)
+            min_lat = target_point[LLA.LAT.value] - \
+                math.degrees(distance_radians)
+            max_lat = target_point[LLA.LAT.value] + \
+                math.degrees(distance_radians)
             min_lon = target_point[LLA.LON.value] - math.degrees(
                 distance_radians / math.cos(math.radians(target_point[LLA.LAT.value])))
             max_lon = target_point[LLA.LON.value] + math.degrees(
                 distance_radians / math.cos(math.radians(target_point[LLA.LAT.value])))
 
-        
         return round(min_lat, 4), round(max_lat, 4), \
             round(min_lon, 4), round(max_lon, 4)
 
@@ -936,28 +938,29 @@ class ProfileGenerator(object):
         '''
         @brief TODO
         @param target AreaOfInterest object
+        @param number of rows found
         '''
         db_list = self.ut.getAllFilenamesFromDir(self.__dbDir)
 
         if isinstance(target.size, list):
             distance = [
-                (target.size(LLA.LAT.value)/2) * KM_TO_M,
-                (target.size(LLA.LON.value)/2) * KM_TO_M]
+                (target.size(LLA.LAT.value) / 2) * KM_TO_M,
+                (target.size(LLA.LON.value) / 2) * KM_TO_M]
         else:
-            distance = (target.size/2) * KM_TO_M
+            distance = (target.size / 2) * KM_TO_M
 
         rows = []
 
         with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.__maxWorkers) as executor:
+                max_workers=self.__maxWorkers) as executor:
 
             futures = [executor.submit(
                 self.__queryTargetAOI,
                 target.coordinates,
                 distance,
                 os.path.join(self.__dbDir, db)) for db in db_list]
-            
-            results = [future.result() 
+
+            results = [future.result()
                        for future in concurrent.futures.as_completed(futures)]
 
             rows = list(chain.from_iterable(results))
@@ -971,19 +974,24 @@ class ProfileGenerator(object):
             self.__createAOITable(db_path, target.filename)
             self.__insertAOI(db_path, target.filename, rows)
 
-        logging.info(
-            "[{0}] Total entries: {1}".format(
-                target.name, repr(
-                    len(rows))))
+        return len(rows)
 
     @public
     def collectData(self):
         '''
         @brief Searches and saves AOI data
         '''
-        for target in self.aoi_data:
-            self.__findTargetRows(target)
+        total_entries = 0
 
+        for target in self.aoi_data:
+            num_entries = self.__findTargetRows(target)
+            total_entries += num_entries
+
+            logging.info(
+                "[{0}] Total entries: {1}".format(
+                    target.name, num_entries))
+
+        logging.info("Total entries: " + repr(total_entries))
         logging.info("Done")
 
     @public
