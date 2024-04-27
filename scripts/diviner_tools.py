@@ -614,7 +614,8 @@ class DatabaseTools(object):
                 db_connection.close()
 
     @public
-    def createIndex(self, database_path, index_name, columns):
+    def createIndex(
+        self, database_path, index_name, columns, table_name="RDR_LVL1_CH7"):
         '''
         @brief Creates an index on specified columns to speed
             up queries
@@ -623,8 +624,8 @@ class DatabaseTools(object):
         @param index_name Name of index
         @param columns A list of columns
         '''
-        logging.info("Creating index {} on {} for {}".format(
-            index_name, columns, database_path))
+        logging.info("Creating index {} on {} for {} in {}".format(
+            index_name, columns, table_name, database_path))
         logging.info("This may take a while (20+ minutes)...")
 
         db_connection = None
@@ -634,8 +635,8 @@ class DatabaseTools(object):
 
             db_cursor = db_connection.cursor()
 
-            index_query = "CREATE INDEX {} ON RDR_LVL1_CH7 ({})".format(
-                index_name, ", ".join(columns))
+            index_query = "CREATE INDEX {} ON {} ({})".format(
+                index_name, table_name, ", ".join(columns))
             db_cursor.execute(index_query)
 
             while True:
@@ -712,6 +713,35 @@ class DatabaseTools(object):
             if db_connection:
                 db_connection.close()
 
+    @public
+    def getTableList(self, database_path):
+        '''
+        @brief Returns a list of table names in a database
+        @param database_path The path to the target database
+        @return A list of table names
+        '''
+        db_connection = None
+        tables = []
+
+        try:
+            db_connection = sqlite3.connect(database_path)
+
+            db_cursor = db_connection.cursor()
+
+            db_cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+
+            tables = db_cursor.fetchall()
+            tables = [table[0] for table in tables]
+
+        except sqlite3.Error as e:
+            print("Error " + repr(e))
+
+        finally:
+            if db_connection:
+                db_connection.close()
+
+        return tables
+    
 
 class AreaOfInterest(object):
 
