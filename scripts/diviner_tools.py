@@ -645,7 +645,7 @@ class DatabaseTools(object):
                 index_info = db_cursor.fetchall()
 
                 if index_info:
-                    print("Done")
+                    logging.info("Done")
                     break
 
                 time.sleep(1)
