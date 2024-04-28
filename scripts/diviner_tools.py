@@ -16,6 +16,7 @@ from enum import Enum
 from itertools import chain
 import logging
 import math
+import numpy as np
 import os
 from public import public
 import requests
@@ -1023,6 +1024,66 @@ class ProfileGenerator(object):
 
         logging.info("Total entries: " + repr(total_entries))
         logging.info("Done")
+
+    def __calculateSubRegions(self, min_lat, max_lat, min_lon, max_lon, size):
+        '''
+        @brief Given the min/max lat/lon of a region, calculate the sub-min/max lat/lon
+            values of sub-regions of a specified size
+        @param min_lat Lower latitude boundary of a target region
+        @param max_lat Upper latitude boundary of a target region
+        @param min_lon Lower longitude boundary of a target region
+        @param max_lon Upper longitude boundary of a target region
+        @return A list of lists of bounding lat/lon values of subregions
+        '''
+        moon_circumference_m = 2 * math.pi * LUNAR_RADIUS_M
+        m_per_degree = moon_circumference_m / 360  
+        deg_lat = size / m_per_degree
+    
+        latitudes = np.arange(min_lat, max_lat, deg_lat)
+        longitudes = []
+
+        for lat in latitudes:
+            deg_lon = deg_lat / np.cos(np.radians(lat))
+            longitudes.append(np.arange(min_lon, max_lon, deg_lon))
+    
+        subregions = []
+        for i in range(len(latitudes) - 1):
+            for j in range(len(longitudes[i]) - 1):
+                subregions.append([
+                    round(latitudes[i], 4),
+                    round(latitudes[i + 1], 4),
+                    round(longitudes[i][j], 4),
+                    round(longitudes[i][j + 1], 4)])
+    
+        return subregions
+
+    @public
+    def getBinCoordinates(self, database_path, table_name, bin_size=200):
+        '''
+        @brief Returns a list of lists of coordinates that define
+            the min/max lat/lon of sub-regions of a target whose
+            data is stored within a database table
+        @param table_name Name of the table containing feature data
+        @param database_path Path to the database object
+        @param bin_size The size of the sub-regions defined in meters
+        '''
+        min_lat = self.dbt.query(
+            database_path, 
+            "SELECT MIN(CLAT) FROM {};".format(table_name))[0][0]
+        
+        max_lat = self.dbt.query(
+            database_path, 
+            "SELECT MAX(CLAT) FROM {};".format(table_name))[0][0]
+        
+        min_lon = self.dbt.query(
+            database_path, 
+            "SELECT MIN(CLON) FROM {};".format(table_name))[0][0]
+        
+        max_lon = self.dbt.query(
+            database_path, 
+            "SELECT MAX(CLON) FROM {};".format(table_name))[0][0]
+        
+        return self.__calculateSubRegions(min_lat, max_lat, min_lon, max_lon, bin_size)
 
     @public
     def generateProfiles(self):

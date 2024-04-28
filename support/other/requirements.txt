@@ -1,4 +1,7 @@
 beautifulsoup4
+matplotlib
+numpy
 public
-requests
 PyYAML
+requests
+scikit-learn
