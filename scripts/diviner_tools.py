@@ -14,6 +14,7 @@ import concurrent.futures
 from datetime import datetime
 from enum import Enum
 from itertools import chain
+import json
 import logging
 import math
 import numpy as np
@@ -1090,7 +1091,47 @@ class ProfileGenerator(object):
         '''
         @brief TODO
         '''
-        pass
+        aoi_db_path = os.path.join(self.__aoiDir, "aoi.db")
+
+        # Get list of tables in AOI database
+        table_list = self.dbt.getTableList(aoi_db_path)
+
+        # For each AOI, create 200m x 200m sub-regions, sort
+        # points by cloctime, filter, interpolate, and 
+        # save to json output
+        for table in table_list:
+            logging.info("Processing " + table)
+
+            subregions = self.getBinCoordinates(aoi_db_path, table)
+
+            for index, region in enumerate(subregions):
+
+                json_path = os.path.join(self.__profilesDir, "{}_{}.json".format(table, index))
+
+                query = """
+                    SELECT cloctime, tb 
+                    FROM {} 
+                    WHERE CLAT BETWEEN {} AND {} 
+                    AND CLON BETWEEN {} AND {} 
+                    ORDER BY cloctime
+                    """.format(table, region[0], region[1], region[2], region[3])
+        
+                rows = self.dbt.query(aoi_db_path, query)
+
+                # TODO: filter
+
+                # TODO: interpolate
+
+                profile_dict = {
+                    "name": table,
+                    "boundaries": region,
+                    "rows": rows
+                }
+            
+                with open(json_path, 'w') as f:
+                    json.dump(profile_dict, f, indent=4)
+
+        logging.info("Done")
 
 
 class ZipCrawler(object):
