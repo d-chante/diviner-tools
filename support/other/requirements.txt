@@ -5,4 +5,3 @@ public
 PyYAML
 requests
 scikit-learn
-sqlite3
