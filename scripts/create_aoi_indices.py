@@ -2,7 +2,7 @@
 @file create_aoi_indices.py
 @author Chantelle G. Dubois (chantelle.dubois@mail.concordia.ca)
 
-@brief	This python script will create coordinate and datetime
+@brief	This python script will create coordinate 
     indices for all tables in the AOI database
 '''
 from diviner_tools import DatabaseTools
@@ -25,20 +25,12 @@ def main():
 
     for table in table_list:
         idx_clat_clon_name = "idx_clat_clon_" + table
-        idx_datetime_name = "idx_datetime_" + table
 
         print("Creating index " + idx_clat_clon_name)
         dbt.createIndex(
             database_path=DB_PATH, 
             index_name=idx_clat_clon_name, 
             columns=["CLAT", "CLON"], 
-            table_name=table)
-        
-        print("Creating index " + idx_datetime_name)
-        dbt.createIndex(
-            database_path=DB_PATH, 
-            index_name=idx_datetime_name, 
-            columns=["DATETIME"], 
             table_name=table)
 
 if __name__ == "__main__":
