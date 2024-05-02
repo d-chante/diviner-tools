@@ -1,5 +1,4 @@
 beautifulsoup4
-concurrent.futures
 matplotlib
 numpy
 public
