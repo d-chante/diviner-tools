@@ -17,7 +17,6 @@ from itertools import chain
 import json
 import logging
 import math
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 from public import public
