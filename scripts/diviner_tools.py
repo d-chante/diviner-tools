@@ -17,17 +17,22 @@ from itertools import chain
 import json
 import logging
 import math
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 from public import public
 import requests
 import re
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import Matern
+from sklearn.exceptions import ConvergenceWarning
 import sqlite3
 import sys
 import threading
 import time
 import queue
 from urllib.parse import urljoin
+import warnings
 import yaml
 from zipfile import ZipFile, BadZipFile
 
@@ -1085,7 +1090,53 @@ class ProfileGenerator(object):
             "SELECT MAX(CLON) FROM {};".format(table_name))[0][0]
         
         return self.__calculateSubRegions(min_lat, max_lat, min_lon, max_lon, bin_size)
+    
+    def __filterCloctime(self, data, hours):
+        '''
+        @brief Given an array of data, decimate 
+            so that there is at least <hours> 
+            between data points
+        @param data An array of [CLOCTIME, TB] values
+        @param hours Required time between data points
+        @return Filtered data points
+        '''
+        filtered = []
 
+        last_cloctime = None
+
+        for entry in data:
+            cloctime = entry[0]
+
+            if last_cloctime is None or cloctime - last_cloctime >= hours:
+                filtered.append(entry)
+                last_cloctime = cloctime
+
+        return filtered
+    
+    def __interpolateGPR(self, data):
+        '''
+        @brief Applies Guassian Process Regression
+        @param data An np array containing [CLOCTIME, TB] data
+        @return An interpolated list of datapoints
+        '''
+        warnings.filterwarnings("ignore", category=ConvergenceWarning)
+
+        X = data[:, 0].reshape(-1, 1)
+        y = data[:, 1]  # TB
+
+        kernel = 10.0 * Matern(length_scale=6.0, nu=1.5)
+
+        gp = GaussianProcessRegressor(kernel=kernel, alpha=10.0, n_restarts_optimizer=10)
+        gp.fit(X, y)
+
+        X_new = np.linspace(0, 24, 120).reshape(-1, 1)
+        y_pred, sigma = gp.predict(X_new, return_std=True)
+        y_pred_rounded = np.round(y_pred, 3)
+
+        data = np.column_stack((np.around(X_new.flatten(), 5), y_pred_rounded)).tolist()
+
+        return data  
+    
     @public
     def generateProfiles(self):
         '''
@@ -1117,15 +1168,13 @@ class ProfileGenerator(object):
                     """.format(table, region[0], region[1], region[2], region[3])
         
                 rows = self.dbt.query(aoi_db_path, query)
-
-                # TODO: filter
-
-                # TODO: interpolate
+                rows = self.__filterCloctime(rows, 4)
+                rows = self.__interpolateGPR(np.array(rows))
 
                 profile_dict = {
                     "name": table,
                     "boundaries": region,
-                    "rows": rows
+                    "data": rows
                 }
             
                 with open(json_path, 'w') as f:
