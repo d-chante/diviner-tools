@@ -1,7 +1,9 @@
 beautifulsoup4
+concurrent.futures
 matplotlib
 numpy
 public
 PyYAML
 requests
 scikit-learn
+sqlite3
