@@ -1158,7 +1158,6 @@ class ProfileGenerator(object):
         subregions = self.getBinCoordinates(database_path, table)
 
         for index, region in enumerate(subregions):
-
             json_path = os.path.join(
                 self.__profilesDir,
                 "{}_{}.json".format(
@@ -1183,14 +1182,8 @@ class ProfileGenerator(object):
                 "data": rows
             }
 
-            try:
-                with open(json_path, 'w') as f:
-                    json.dump(profile_dict, f, indent=4)
-                return True
-
-            except Exception as e:
-                print("Unable to save to json: " + repr(e))
-                return False
+            with open(json_path, 'w') as f:
+                json.dump(profile_dict, f, indent=4)
 
         logging.info("[{}] Finished ".format(table))
 
@@ -1205,7 +1198,7 @@ class ProfileGenerator(object):
 
         # Get list of tables in AOI database
         table_list = self.dbt.getTableList(aoi_db_path)
-
+        
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.__maxWorkers) as executor:
 
             futures = [
