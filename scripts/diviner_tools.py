@@ -621,7 +621,11 @@ class DatabaseTools(object):
 
     @public
     def createIndex(
-        self, database_path, index_name, columns, table_name="RDR_LVL1_CH7"):
+            self,
+            database_path,
+            index_name,
+            columns,
+            table_name="RDR_LVL1_CH7"):
         '''
         @brief Creates an index on specified columns to speed
             up queries
@@ -734,7 +738,8 @@ class DatabaseTools(object):
 
             db_cursor = db_connection.cursor()
 
-            db_cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            db_cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table';")
 
             tables = db_cursor.fetchall()
             tables = [table[0] for table in tables]
@@ -747,7 +752,7 @@ class DatabaseTools(object):
                 db_connection.close()
 
         return tables
-    
+
 
 class AreaOfInterest(object):
 
@@ -1041,16 +1046,16 @@ class ProfileGenerator(object):
         @return A list of lists of bounding lat/lon values of subregions
         '''
         moon_circumference_m = 2 * math.pi * LUNAR_RADIUS_M
-        m_per_degree = moon_circumference_m / 360  
+        m_per_degree = moon_circumference_m / 360
         deg_lat = size / m_per_degree
-    
+
         latitudes = np.arange(min_lat, max_lat, deg_lat)
         longitudes = []
 
         for lat in latitudes:
             deg_lon = deg_lat / np.cos(np.radians(lat))
             longitudes.append(np.arange(min_lon, max_lon, deg_lon))
-    
+
         subregions = []
         for i in range(len(latitudes) - 1):
             for j in range(len(longitudes[i]) - 1):
@@ -1059,7 +1064,7 @@ class ProfileGenerator(object):
                     round(latitudes[i + 1], 4),
                     round(longitudes[i][j], 4),
                     round(longitudes[i][j + 1], 4)])
-    
+
         return subregions
 
     @public
@@ -1073,27 +1078,28 @@ class ProfileGenerator(object):
         @param bin_size The size of the sub-regions defined in meters
         '''
         min_lat = self.dbt.query(
-            database_path, 
+            database_path,
             "SELECT MIN(CLAT) FROM {};".format(table_name))[0][0]
-        
+
         max_lat = self.dbt.query(
-            database_path, 
+            database_path,
             "SELECT MAX(CLAT) FROM {};".format(table_name))[0][0]
-        
+
         min_lon = self.dbt.query(
-            database_path, 
+            database_path,
             "SELECT MIN(CLON) FROM {};".format(table_name))[0][0]
-        
+
         max_lon = self.dbt.query(
-            database_path, 
+            database_path,
             "SELECT MAX(CLON) FROM {};".format(table_name))[0][0]
-        
-        return self.__calculateSubRegions(min_lat, max_lat, min_lon, max_lon, bin_size)
-    
+
+        return self.__calculateSubRegions(
+            min_lat, max_lat, min_lon, max_lon, bin_size)
+
     def __filterCloctime(self, data, hours):
         '''
-        @brief Given an array of data, decimate 
-            so that there is at least <hours> 
+        @brief Given an array of data, decimate
+            so that there is at least <hours>
             between data points
         @param data An array of [CLOCTIME, TB] values
         @param hours Required time between data points
@@ -1111,7 +1117,7 @@ class ProfileGenerator(object):
                 last_cloctime = cloctime
 
         return filtered
-    
+
     def __interpolateGPR(self, data):
         '''
         @brief Applies Guassian Process Regression
@@ -1125,61 +1131,94 @@ class ProfileGenerator(object):
 
         kernel = 10.0 * Matern(length_scale=6.0, nu=1.5)
 
-        gp = GaussianProcessRegressor(kernel=kernel, alpha=10.0, n_restarts_optimizer=10)
+        gp = GaussianProcessRegressor(
+            kernel=kernel, alpha=10.0, n_restarts_optimizer=10)
         gp.fit(X, y)
 
         X_new = np.linspace(0, 24, 120).reshape(-1, 1)
         y_pred, sigma = gp.predict(X_new, return_std=True)
         y_pred_rounded = np.round(y_pred, 3)
 
-        data = np.column_stack((np.around(X_new.flatten(), 5), y_pred_rounded)).tolist()
+        data = np.column_stack(
+            (np.around(X_new.flatten(), 5), y_pred_rounded)).tolist()
 
-        return data  
-    
+        return data
+
+    def __createProfile(self, database_path, table):
+        '''
+        @brief Generates a profile based on table data
+        @param database_path Path to database containing table
+        @param table Name of target table
+        '''
+        logging.info("[{}] Processing ".format(table))
+
+        # For each AOI, create 200m x 200m sub-regions, sort
+        # points by cloctime, filter, interpolate, and
+        # save to json output
+        subregions = self.getBinCoordinates(database_path, table)
+
+        for index, region in enumerate(subregions):
+
+            json_path = os.path.join(
+                self.__profilesDir,
+                "{}_{}.json".format(
+                    table,
+                    index))
+
+            query = """
+                SELECT cloctime, tb
+                FROM {}
+                WHERE CLAT BETWEEN {} AND {}
+                AND CLON BETWEEN {} AND {}
+                ORDER BY cloctime
+                """.format(table, region[0], region[1], region[2], region[3])
+
+            rows = self.dbt.query(database_path, query)
+            rows = self.__filterCloctime(rows, 4)
+            rows = self.__interpolateGPR(np.array(rows))
+
+            profile_dict = {
+                "name": table,
+                "boundaries": region,
+                "data": rows
+            }
+
+            try:
+                with open(json_path, 'w') as f:
+                    json.dump(profile_dict, f, indent=4)
+                return True
+
+            except Exception as e:
+                print("Unable to save to json: " + repr(e))
+                return False
+
+        logging.info("[{}] Finished ".format(table))
+
     @public
     def generateProfiles(self):
         '''
-        @brief TODO
+        @brief Generates profile training data using curated
+            data stored in an sqlite database, and saves the
+            profiles as a .json file
         '''
         aoi_db_path = os.path.join(self.__aoiDir, "aoi.db")
 
         # Get list of tables in AOI database
         table_list = self.dbt.getTableList(aoi_db_path)
 
-        # For each AOI, create 200m x 200m sub-regions, sort
-        # points by cloctime, filter, interpolate, and 
-        # save to json output
-        for table in table_list:
-            logging.info("Processing " + table)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.__maxWorkers) as executor:
 
-            subregions = self.getBinCoordinates(aoi_db_path, table)
+            futures = [
+                executor.submit(
+                    self.__createProfile,
+                    aoi_db_path,
+                    table) for table in table_list]
 
-            for index, region in enumerate(subregions):
-
-                json_path = os.path.join(self.__profilesDir, "{}_{}.json".format(table, index))
-
-                query = """
-                    SELECT cloctime, tb 
-                    FROM {} 
-                    WHERE CLAT BETWEEN {} AND {} 
-                    AND CLON BETWEEN {} AND {} 
-                    ORDER BY cloctime
-                    """.format(table, region[0], region[1], region[2], region[3])
-        
-                rows = self.dbt.query(aoi_db_path, query)
-                rows = self.__filterCloctime(rows, 4)
-                rows = self.__interpolateGPR(np.array(rows))
-
-                profile_dict = {
-                    "name": table,
-                    "boundaries": region,
-                    "data": rows
-                }
+            # Wait for all futures to complete
+            results = [future.result()
+                       for future in concurrent.futures.as_completed(futures)]
             
-                with open(json_path, 'w') as f:
-                    json.dump(profile_dict, f, indent=4)
-
-        logging.info("Done")
+        logging.info("Profile generation done")
 
 
 class ZipCrawler(object):
