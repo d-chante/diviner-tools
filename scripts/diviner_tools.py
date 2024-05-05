@@ -510,10 +510,9 @@ class DivinerPreprocessor(object):
                               " Error message: " + repr(e))
 
         else:
-            # Add the filename to the bad files text
-            logging.error("Bad file being logged: " + repr(filename))
-            self.ut.appendToFile(
-                self.__getBadFilesFilepath(), filename)
+            # Add the url to the bad files text
+            logging.error("Bad url being logged: " + repr(url))
+            self.ut.appendToFile(url)
 
     @public
     def preprocess(self, data):
