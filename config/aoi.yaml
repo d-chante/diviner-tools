@@ -1,0 +1,303 @@
+# Areas of Interest
+#
+# Coordinates are expressed in [latitude, longitude].
+# See section 2.4.3 of the Diviner RDR SIS for more
+# information on the coordinate system.
+#
+# Class definitions:
+#   1 - thermal anomalies
+#   2 - microwave anomalies
+#   3 - magnetic anomalies
+#   4 - background
+# 
+# Size is expressed in km
+#
+areas_of_interest:
+  - id: 1
+    name: "Marius-A Crater"
+    coordinates: [12.58, 313.96]
+    class: 1
+    size: 15 # Source: https://en.wikipedia.org/wiki/Marius_(crater)
+
+  - id: 2
+    name: "Hell-Q Crater"
+    coordinates: [-33.00, 355.53]
+    class: 1
+    size: 3.75 # Source: https://en.wikipedia.org/wiki/Hell_(crater)
+
+  - id: 3
+    name: "King Crater"
+    coordinates: [4.91, 120.47]
+    class: 1
+    size: 76 # Source: https://en.wikipedia.org/wiki/King_(crater)
+
+  - id: 3
+    name: "Tycho Crater"
+    coordinates: [-43.29, 348.67]
+    class: [1, 2]
+    size: 85 # Source: https://en.wikipedia.org/wiki/Tycho_(lunar_crater)
+
+  - id: 4
+    name: "Aristarchus Crater"
+    coordinates: [23.70, 312.52]
+    class: [1, 2]
+    size: 40 # Source: https://en.wikipedia.org/wiki/Aristarchus_(crater)
+
+  - id: 5
+    name: "Copernicus Crater"
+    coordinates: [9.60, 339.93]
+    class: [1, 2]
+    size: 93 # Source: https://en.wikipedia.org/wiki/Copernicus_(lunar_crater)
+
+  - id: 6
+    name: "Giordano Bruno Crater"
+    coordinates: [35.95, 102.88]
+    class: [1, 2]
+    size: 22.13 # Source: https://en.wikipedia.org/wiki/Giordano_Bruno_(crater)
+
+  - id: 7
+    name: "Jackson Crater"
+    coordinates: [21.98, 196.69]
+    class: 1
+    size: 71.3 # Source: https://en.wikipedia.org/wiki/Jackson_(crater)
+
+  - id: 8
+    name: "Unnamed Region"
+    coordinates: [6.72, 351.97]
+    class: 1
+    size: 2.8 # Source: https://quickmap.lroc.asu.edu/
+
+  - id: 9
+    name: "Aristarchus Pyroclastic Deposit"
+    coordinates: [26.14, 308.99]
+    class: 1
+    size: [70, 57] # Source: https://www.hou.usra.edu/meetings/lpsc2016/pdf/1309.pdf
+
+  - id: 10
+    name: "Ohm Crater"
+    coordinates: [18.30, 246.29]
+    class: 1
+    size: 64 # Source: https://en.wikipedia.org/wiki/Ohm_(crater)
+    
+  - id: 11
+    name: "Zucchius Crater"
+    coordinates: [-61.39, 309.32]
+    class: 1
+    size: 64 # Source: https://en.wikipedia.org/wiki/Zucchius_(crater)
+    
+  - id: 12
+    name: "Thales Crater"
+    coordinates: [61.70, 50.28]
+    class: 1
+    size: 32 # Source: https://en.wikipedia.org/wiki/Thales_(crater)
+
+  - id: 13
+    name: "Tsiolkovsky Crater"
+    coordinates: [-20.38, 129.03]
+    class: 1
+    size: 184.39 # Source: https://en.wikipedia.org/wiki/Tsiolkovskiy_(crater)
+
+  - id: 14
+    name: "Chapylgin-B Crater"
+    coordinates: [-4.08, 151.67]
+    class: 1
+    size: 1.5 # Source: https://en.wikipedia.org/wiki/Chaplygin_(crater)
+
+  - id: 15
+    name: "Bandfield Crater"
+    coordinates: [-5.40, 90.76]
+    class: 1
+    size: 1 # Source: https://en.wikipedia.org/wiki/Bandfield_(crater)
+
+  - id: 16
+    name: "Rydberg Basin Crater"
+    coordinates: [-46.45, 263.59]
+    class: 3
+    size: 49 # Source: https://en.wikipedia.org/wiki/Rydberg_(crater)
+
+  - id: 17
+    name: "Reiner Gamma Swirl"
+    coordinates: [7.39, 300.97]
+    class: 3
+    size: 70 # Source: https://en.wikipedia.org/wiki/Reiner_Gamma
+
+  - id: 18
+    name: "Atlas Crater"
+    coordinates: [46.78, 44.50]
+    class: 1
+    size: 87 # Source: https://en.wikipedia.org/wiki/Atlas_(crater)
+
+  - id: 19
+    name: "Unnamed Crater 2"
+    coordinates: [18.68, 121.31]
+    class: 1
+    size: 3.08 # Source: https://quickmap.lroc.asu.edu/
+    
+  - id: 20
+    name: "Unnamed Crater 3"
+    coordinates: [-17.69, 144.40]
+    class: 1
+    size: 2.68 # Source: https://quickmap.lroc.asu.edu/
+
+  - id: 21
+    name: "Unnamed Crater 4"
+    coordinates: [-29.74, 120.11]
+    class: 1
+    size: 2.7 # Source: https://quickmap.lroc.asu.edu/
+
+  - id: 22
+    name: "Unnamed Crater 5"
+    coordinates: [-18.93, 69.14]
+    class: 1
+    size: 1.22 # Source: https://quickmap.lroc.asu.edu
+  
+  - id: 23
+    name: "Unnamed Crater 6"
+    coordinates: [5.82, 233.99]
+    class: 1
+    size: 1.12 # Source: https://quickmap.lroc.asu.edu
+    
+  - id: 24
+    name: "Unnamed Crater 7"
+    coordinates: [34.21, 228.28]
+    class: 1
+    size: 2.5 # Source: https://quickmap.lroc.asu.edu
+    
+  - id: 25
+    name: "Cantor Crater"
+    coordinates: [37.98, 118.70]
+    class: 2
+    size: 75.72 # Source: https://en.wikipedia.org/wiki/Cantor_(crater)
+
+  - id: 26
+    name: "Unnamed Crater 8"
+    coordinates: [32.66, 143.68]
+    class: [1, 2]
+    size: 5.7 # Source: https://quickmap.lroc.asu.edu/
+    
+  - id: 27
+    name: "Moore-F Crater"
+    coordinates: [37.23, 185.05]
+    class: 1
+    size: 24 # Source: https://en.wikipedia.org/wiki/Moore_(lunar_crater)
+    
+  - id: 28
+    name: "Egede-A Crater"
+    coordinates: [51.55, 10.50]
+    class: 1
+    size: 13 # Source: https://en.wikipedia.org/wiki/Egede_(crater)
+    
+  - id: 29
+    name: "Chandler Crater"
+    coordinates: [42.46, 167.70]
+    class: 1
+    size: 85 # Source: https://en.wikipedia.org/wiki/Chandler_(crater)
+
+  - id: 30
+    name: "Furnerius-A Crater"
+    coordinates: [-33.51, 58.92]
+    class: 1
+    size: 12 # Source: https://en.wikipedia.org/wiki/Furnerius_(crater)
+
+  - id: 31
+    name: "Rayet-Y Crater"
+    coordinates: [47.19, 113.05]
+    class: 1
+    size: 14 # Source: https://en.wikipedia.org/wiki/Rayet_(crater)
+  
+  - id: 32
+    name: "Dugan-J Crater"
+    coordinates: [61.45, 107.88]
+    class: 1
+    size: 13 # Source: https://en.wikipedia.org/wiki/Dugan_(crater)
+    
+  - id: 33
+    name: "La Condamine-S Crater"
+    coordinates: [57.35, 334.78]
+    class: 1
+    size: 4 # Source: https://en.wikipedia.org/wiki/La_Condamine_(crater)
+
+  - id: 34
+    name: "Plato-M Crater"
+    coordinates: [53.08, 344.54]
+    class: 1
+    size: 8 # Source: https://en.wikipedia.org/wiki/Plato_(crater)
+
+  - id: 35
+    name: "Byrgius-A Crater"
+    coordinates: [-24.57, 296.05]
+    class: 1
+    size: 19 # Source: https://en.wikipedia.org/wiki/Byrgius_(crater)
+    
+  - id: 36
+    name: "Dawes Crater"
+    coordinates: [17.21, 26.36]
+    class: 1
+    size: 18 # Source: https://en.wikipedia.org/wiki/Dawes_(lunar_crater)
+    
+  - id: 37
+    name: "Unnamed Crater 9"
+    coordinates: [60.31, 341.33]
+    class: 1
+    size: 3.15 # Source: https://quickmap.lroc.asu.edu/
+
+  - id: 38
+    name: "Unnamed Crater 10"
+    coordinates: [32.40, 89.84]
+    class: 1
+    size: 0.96 # Source: https://quickmap.lroc.asu.edu/
+
+  - id: 39
+    name: "Hommel-B Crater"
+    coordinates: [-55.34, 37.79]
+    class: 1
+    size: 33 # Source: https://en.wikipedia.org/wiki/Hommel_(crater)
+
+  - id: 40
+    name: "Unnamed Crater 11"
+    coordinates: [-0.25, 309.53]
+    class: 1
+    size: 0.81 # Source: https://quickmap.lroc.asu.edu
+
+  - id: 41
+    name: "Compton Crater"
+    coordinates: [55.82, 104.44]
+    class: 1
+    size: 162 # Source: https://en.wikipedia.org/wiki/Compton_(crater)
+
+  - id: 42
+    name: "Crookes Crater"
+    coordinates: [-10.38, 194.98]
+    class: 1
+    size: 49 # Source: https://en.wikipedia.org/wiki/Crookes_(crater)
+    
+  - id: 43
+    name: "Pierazzo Crater"
+    coordinates: [3.34, 259.69]
+    class: 1
+    size: 9.29 # Source: https://en.wikipedia.org/wiki/Pierazzo_(crater)
+    
+  - id: 44
+    name: "Das Crater"
+    coordinates: [-26.50, 222.94]
+    class: 1
+    size: 38 # Source: https://en.wikipedia.org/wiki/Das_(crater)
+    
+  - id: 45
+    name: "Fechner-T Crater"
+    coordinates: [-58.74, 122.80]
+    class: 1
+    size: 63 # Source: https://en.wikipedia.org/wiki/Fechner_(crater)
+    
+  - id: 46
+    name: "Fitzgerald Crater"
+    coordinates: [26.62, 187.96]
+    class: 4
+    size: 104 # Source: https://en.wikipedia.org/wiki/FitzGerald_(crater)
+    
+  - id: 47
+    name: "Maksutov Crater"
+    coordinates: [-40.87, 191.31]
+    class: 4
+    size: 83 # Source: https://en.wikipedia.org/wiki/Maksutov_(crater)
+    

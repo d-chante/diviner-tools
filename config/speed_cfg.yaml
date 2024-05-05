@@ -1,0 +1,31 @@
+# Speed Configuration
+# 
+# Speed is the Concordia University HPC
+#
+
+# Pathway to database directory
+database_directory: "/speed-scratch/d_chante/diviner_data/database"
+
+# Pathway to the tmp directory
+tmp_directory: "/speed-scratch/d_chante/diviner_data/tmp"
+
+# Pathway to useful tabs directory
+useful_tabs_directory: "/speed-scratch/d_chante/diviner_data/txt_files/useful_tabs"
+
+# Pathway to bad directory
+bad_files_directory: "/speed-scratch/d_chante/diviner_data/txt_files/bad_files"
+
+# Pathway to logs directory
+log_directory: "/speed-scratch/d_chante/diviner_data/txt_files/logs"
+
+# Max transaction size for SQL queries
+transaction_size: 100000
+
+# Max number of thread workers
+max_workers: 30
+
+# Pathway to AOI data directory
+aoi_directory: "/speed-scratch/d_chante/diviner_data/data/aoi"
+
+# Pathway to profiles directory
+profiles_directory: "/speed-scratch/d_chante/diviner_data/data/profiles"
