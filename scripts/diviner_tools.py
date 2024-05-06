@@ -512,7 +512,7 @@ class DivinerPreprocessor(object):
         else:
             # Add the url to the bad files text
             logging.error("Bad url being logged: " + repr(url))
-            self.ut.appendToFile(url)
+            self.ut.appendToFile(self.__getBadFilesFilepath(), url)
 
     @public
     def preprocess(self, data):
