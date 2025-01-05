@@ -28,4 +28,4 @@ max_workers: 32
 aoi_directory: "/esthar/diviner_data/data/aoi"
 
 # Pathway to profiles directory
-profiles_directory: "/esthar/diviner_data/data/profiles"
+profiles_directory: "/test/profiles"

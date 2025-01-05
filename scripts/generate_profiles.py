@@ -5,7 +5,6 @@
 @brief	This python script will generate profiles from AOI data
 '''
 from diviner_tools import ProfileGenerator
-import os
 import sys
 
 

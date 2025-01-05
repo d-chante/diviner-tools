@@ -17,11 +17,13 @@ from itertools import chain
 import json
 import logging
 import math
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 from public import public
 import requests
 import re
+import statistics
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern
 from sklearn.exceptions import ConvergenceWarning
@@ -34,6 +36,9 @@ from urllib.parse import urljoin
 import warnings
 import yaml
 from zipfile import ZipFile, BadZipFile
+
+warnings.filterwarnings("ignore")
+logging.getLogger('matplotlib').setLevel(logging.ERROR)
 
 LUNAR_RADIUS_M = 1737400.0
 KM_TO_M = 1000.0
@@ -1125,8 +1130,8 @@ class ProfileGenerator(object):
         '''
         warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
-        X = data[:, 0].reshape(-1, 1)
-        y = data[:, 1]  # TB
+        X = data[:, 0].reshape(-1, 1)  # Time
+        y = data[:, 1]  # Temperature (TB)
 
         kernel = 10.0 * Matern(length_scale=6.0, nu=1.5)
 
@@ -1136,12 +1141,24 @@ class ProfileGenerator(object):
 
         X_new = np.linspace(0, 24, 120).reshape(-1, 1)
         y_pred, sigma = gp.predict(X_new, return_std=True)
-        y_pred_rounded = np.round(y_pred, 3)
 
-        data = np.column_stack(
-            (np.around(X_new.flatten(), 5), y_pred_rounded)).tolist()
+        X_new_rounded = np.around(X_new.flatten(), 5).tolist()
+        y_pred_rounded = np.round(y_pred, 3).tolist()
 
-        return data
+        return X_new_rounded, y_pred_rounded
+    
+    def __verifyMaxSpacing(self, rows, hours):
+        '''
+        tbd
+        '''
+        cloctimes = sorted(row[0] for row in rows)
+        spacings = [
+            cloctimes[i + 1] - cloctimes[i]
+            for i in range(len(cloctimes) - 1)
+        ]
+        max_spacing = max(spacings)
+        print(max_spacing)
+        return max_spacing >= hours
 
     def __createProfile(self, database_path, table):
         '''
@@ -1173,16 +1190,50 @@ class ProfileGenerator(object):
 
             rows = self.dbt.query(database_path, query)
             rows = self.__filterCloctime(rows, 4)
-            rows = self.__interpolateGPR(np.array(rows))
+            #check = self.__verifyMaxSpacing(rows, 4)
+            check = True
+            
+            if check:
+                raw_time = [row[0] for row in rows if row[1] is not None]
+                raw_temp = [row[1] for row in rows if row[1] is not None]
+                raw_max_temp = max(raw_temp)
+                raw_min_temp = min(raw_temp)
+                raw_mean_temp = statistics.mean(raw_temp)
+                raw_std_temp = statistics.stdev(raw_temp)
 
-            profile_dict = {
-                "name": table,
-                "boundaries": region,
-                "data": rows
-            }
+                interpolated_time, interpolated_temps = self.__interpolateGPR(np.array(rows))
+                max_temp = max(interpolated_temps)
+                min_temp = min(interpolated_temps)
+                mean_temp = statistics.mean(interpolated_temps)
+                std_tmp = statistics.stdev(interpolated_temps)
 
-            with open(json_path, 'w') as f:
-                json.dump(profile_dict, f, indent=4)
+                profile_dict = {
+                    "name": table,
+                    "boundaries": region,
+                    "raw_data": {
+                        "time": raw_time,
+                        "temps": raw_temp,
+                        "statistics": {
+                            "max_temp": raw_max_temp,
+                            "min_temp": raw_min_temp,
+                            "mean_tmp": raw_mean_temp,
+                            "std_tmp": raw_std_temp
+                        }
+                    },
+                    "interpolated_data": {
+                        "time": interpolated_time,
+                        "temps": interpolated_temps,
+                        "statistics": {
+                            "max_temp": max_temp,
+                            "min_temp": min_temp,
+                            "mean_tmp": mean_temp,
+                            "std_tmp": std_tmp
+                        }
+                    }
+                }
+
+                with open(json_path, 'w') as f:
+                    json.dump(profile_dict, f, indent=4)
 
         logging.info("[{}] Finished ".format(table))
 
@@ -1211,6 +1262,39 @@ class ProfileGenerator(object):
                        for future in concurrent.futures.as_completed(futures)]
             
         logging.info("Profile generation done")
+
+    @public
+    def PlotRawAndInterpolatedData(self, json_filepath):
+        with open(json_filepath, 'r') as file:
+            data = json.load(file)
+        
+        try:
+            raw_data = data["raw_data"]
+            interpolated_data = data["interpolated_data"]
+            
+            raw_time = raw_data["time"]
+            raw_temps = raw_data["temps"]
+            
+            interp_time = interpolated_data["time"]
+            interp_temps = interpolated_data["temps"]
+            
+        except KeyError as e:
+            print(f"Missing key in JSON data: {e}")
+            return
+        
+        plt.figure(figsize=(12, 6))
+        plt.plot(raw_time, raw_temps, 'o-', label='Raw Data', markersize=6)
+        plt.plot(interp_time, interp_temps, '-', label='Interpolated Data', linewidth=1.5)
+        plt.xlim(0, 24) 
+        plt.ylim(0, 450) 
+        
+        plt.title('Comparison of Raw and Interpolated Data')
+        plt.xlabel('Time (Local Lunar Time)')
+        plt.ylabel('Temperature (K)')
+        plt.legend()
+        
+        plt.grid(True)
+        plt.show()
 
 
 class ZipCrawler(object):
