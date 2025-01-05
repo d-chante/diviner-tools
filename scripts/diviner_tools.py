@@ -1189,9 +1189,9 @@ class ProfileGenerator(object):
                 """.format(table, region[0], region[1], region[2], region[3])
 
             rows = self.dbt.query(database_path, query)
-            rows = self.__filterCloctime(rows, 4)
-            #check = self.__verifyMaxSpacing(rows, 4)
-            check = True
+            #rows = self.__filterCloctime(rows, 4)
+            check = self.__verifyMaxSpacing(rows, 4)
+            #check = True
             
             if check:
                 raw_time = [row[0] for row in rows if row[1] is not None]
