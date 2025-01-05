@@ -1157,7 +1157,7 @@ class ProfileGenerator(object):
             for i in range(len(cloctimes) - 1)
         ]
         max_spacing = max(spacings)
-        print(max_spacing)
+        return max_spacing >= hours
 
     def __createProfile(self, database_path, table):
         '''
