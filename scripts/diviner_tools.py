@@ -1251,8 +1251,7 @@ class ProfileGenerator(object):
         aoi_db_path = os.path.join(self.__aoiDir, "aoi.db")
 
         # Get list of tables in AOI database
-        #table_list = self.dbt.getTableList(aoi_db_path)
-        table_list = ['BANDFIELD_CRATER', 'UNNAMED_CRATER_6']
+        table_list = self.dbt.getTableList(aoi_db_path)
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.__maxWorkers) as executor:
 
