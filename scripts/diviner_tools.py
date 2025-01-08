@@ -1132,32 +1132,39 @@ class ProfileGenerator(object):
 
         X = data[:, 0].reshape(-1, 1)  # Time
         y = data[:, 1]  # Temperature (TB)
-
-        kernel = 10.0 * Matern(length_scale=6.0, nu=1.5)
-
+        
+        # Enforce that the first and last temps are the same
+        start_time, end_time = 0, 24
+        start_temp, end_temp = y[0], y[-1]
+        mean_temp = (start_temp + end_temp) / 2  
+        
+        X_augmented = np.vstack(([start_time], X, [end_time]))
+        y_augmented = np.hstack(([mean_temp], y, [mean_temp]))
+        
+        # Define the GPR kernel
+        kernel = 10.0 * Matern(length_scale=10.0, nu=1.5)
+        
+        # Fit GPR model
         gp = GaussianProcessRegressor(
             kernel=kernel, alpha=10.0, n_restarts_optimizer=10)
-        gp.fit(X, y)
-
+        gp.fit(X_augmented, y_augmented)
+        
+        # Predict over the new grid
         X_new = np.linspace(0, 24, 120).reshape(-1, 1)
-        y_pred, sigma = gp.predict(X_new, return_std=True)
-
+        y_pred, _ = gp.predict(X_new, return_std=True)
+        
+        # Post-process to ensure the first and last predictions match
+        y_pred[0] = mean_temp
+        y_pred[-1] = mean_temp
+        
+        # Rounding
         X_new_rounded = np.around(X_new.flatten(), 5).tolist()
         y_pred_rounded = np.round(y_pred, 3).tolist()
-
+        
         return X_new_rounded, y_pred_rounded
     
-    def __verifyMaxSpacing(self, rows, hours):
-        '''
-        tbd
-        '''
-        cloctimes = sorted(row[0] for row in rows)
-        spacings = [
-            cloctimes[i + 1] - cloctimes[i]
-            for i in range(len(cloctimes) - 1)
-        ]
-        max_spacing = max(spacings)
-        return max_spacing >= hours
+    def __verifyInterpolationInRange(self, temp_array, min_temp, max_temp):
+        return min(temp_array) >= min_temp and max(temp_array) <= max_temp
 
     def __createProfile(self, database_path, table):
         '''
@@ -1188,11 +1195,10 @@ class ProfileGenerator(object):
                 """.format(table, region[0], region[1], region[2], region[3])
 
             rows = self.dbt.query(database_path, query)
-            #rows = self.__filterCloctime(rows, 4)
-            check = self.__verifyMaxSpacing(rows, 4)
-            #check = True
-            
-            if check:
+            filtered_rows = self.__filterCloctime(rows, 3)
+            interpolated_time, interpolated_temps = self.__interpolateGPR(np.array(filtered_rows))
+
+            if self.__verifyInterpolationInRange(interpolated_temps, 45, 405):
                 raw_time = [row[0] for row in rows if row[1] is not None]
                 raw_temp = [row[1] for row in rows if row[1] is not None]
                 raw_max_temp = max(raw_temp)
@@ -1200,7 +1206,6 @@ class ProfileGenerator(object):
                 raw_mean_temp = statistics.mean(raw_temp)
                 raw_std_temp = statistics.stdev(raw_temp)
 
-                interpolated_time, interpolated_temps = self.__interpolateGPR(np.array(rows))
                 max_temp = max(interpolated_temps)
                 min_temp = min(interpolated_temps)
                 mean_temp = statistics.mean(interpolated_temps)
@@ -1246,7 +1251,8 @@ class ProfileGenerator(object):
         aoi_db_path = os.path.join(self.__aoiDir, "aoi.db")
 
         # Get list of tables in AOI database
-        table_list = self.dbt.getTableList(aoi_db_path)
+        #table_list = self.dbt.getTableList(aoi_db_path)
+        table_list = ['BANDFIELD_CRATER', 'UNNAMED_CRATER_6']
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.__maxWorkers) as executor:
 
