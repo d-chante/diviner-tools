@@ -20,6 +20,7 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from pathlib import Path
 from public import public
 import requests
 import re
@@ -1162,9 +1163,6 @@ class ProfileGenerator(object):
         y_pred_rounded = np.round(y_pred, 3).tolist()
         
         return X_new_rounded, y_pred_rounded
-    
-    def __verifyInterpolationInRange(self, temp_array, min_temp, max_temp):
-        return min(temp_array) >= min_temp and max(temp_array) <= max_temp
 
     def __createProfile(self, database_path, table):
         '''
@@ -1173,6 +1171,9 @@ class ProfileGenerator(object):
         @param table Name of target table
         '''
         logging.info("[{}] Processing ".format(table))
+
+        num_new_profiles = 0
+        num_existing_profiles = 0
 
         # For each AOI, create 200m x 200m sub-regions, sort
         # points by cloctime, filter, interpolate, and
@@ -1185,20 +1186,24 @@ class ProfileGenerator(object):
                 "{}_{}.json".format(
                     table,
                     index))
+            
+            # Check if Profile exists already (useful in cases where 
+            # Profile generation must occur over multiple sessions)
+            if Path(json_path).exists():
+                num_existing_profiles += 1
+            else:
+                query = """
+                    SELECT cloctime, tb
+                    FROM {}
+                    WHERE CLAT BETWEEN {} AND {}
+                    AND CLON BETWEEN {} AND {}
+                    ORDER BY cloctime
+                    """.format(table, region[0], region[1], region[2], region[3])
 
-            query = """
-                SELECT cloctime, tb
-                FROM {}
-                WHERE CLAT BETWEEN {} AND {}
-                AND CLON BETWEEN {} AND {}
-                ORDER BY cloctime
-                """.format(table, region[0], region[1], region[2], region[3])
+                rows = self.dbt.query(database_path, query)
+                filtered_rows = self.__filterCloctime(rows, 3)
+                interpolated_time, interpolated_temps = self.__interpolateGPR(np.array(filtered_rows))
 
-            rows = self.dbt.query(database_path, query)
-            filtered_rows = self.__filterCloctime(rows, 3)
-            interpolated_time, interpolated_temps = self.__interpolateGPR(np.array(filtered_rows))
-
-            if self.__verifyInterpolationInRange(interpolated_temps, 45, 405):
                 raw_time = [row[0] for row in rows if row[1] is not None]
                 raw_temp = [row[1] for row in rows if row[1] is not None]
                 raw_max_temp = max(raw_temp)
@@ -1213,15 +1218,18 @@ class ProfileGenerator(object):
 
                 profile_dict = {
                     "name": table,
-                    "boundaries": region,
+                    "boundaries": {
+                        "lat": [region[0], region[1]],
+                        "lon": [region[2], region[3]]
+                    },
                     "raw_data": {
                         "time": raw_time,
                         "temps": raw_temp,
                         "statistics": {
                             "max_temp": raw_max_temp,
                             "min_temp": raw_min_temp,
-                            "mean_tmp": raw_mean_temp,
-                            "std_tmp": raw_std_temp
+                            "mean_temp": raw_mean_temp,
+                            "std_temp": raw_std_temp
                         }
                     },
                     "interpolated_data": {
@@ -1230,16 +1238,18 @@ class ProfileGenerator(object):
                         "statistics": {
                             "max_temp": max_temp,
                             "min_temp": min_temp,
-                            "mean_tmp": mean_temp,
-                            "std_tmp": std_tmp
+                            "mean_temp": mean_temp,
+                            "std_temp": std_tmp
                         }
                     }
                 }
 
                 with open(json_path, 'w') as f:
                     json.dump(profile_dict, f, indent=4)
+                
+                num_new_profiles += 1
 
-        logging.info("[{}] Finished ".format(table))
+        logging.info(f"[{table}] Finished ({num_new_profiles} Profiles created, {num_existing_profiles} already existed)")
 
     @public
     def generateProfiles(self):
@@ -1251,7 +1261,8 @@ class ProfileGenerator(object):
         aoi_db_path = os.path.join(self.__aoiDir, "aoi.db")
 
         # Get list of tables in AOI database
-        table_list = self.dbt.getTableList(aoi_db_path)
+        #table_list = self.dbt.getTableList(aoi_db_path)
+        table_list = ["BANDFIELD_CRATER", "UNNAMED_CRATER_7"] # debug
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.__maxWorkers) as executor:
 
