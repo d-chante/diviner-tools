@@ -1143,11 +1143,11 @@ class ProfileGenerator(object):
         y_augmented = np.hstack(([mean_temp], y, [mean_temp]))
         
         # Define the GPR kernel
-        kernel = 10.0 * Matern(length_scale=10.0, nu=1.5)
+        kernel = 10.0 * Matern(length_scale=6.0, nu=1.5)
         
         # Fit GPR model
         gp = GaussianProcessRegressor(
-            kernel=kernel, alpha=10.0, n_restarts_optimizer=10)
+            kernel=kernel, alpha=100.0, n_restarts_optimizer=10)
         gp.fit(X_augmented, y_augmented)
         
         # Predict over the new grid
@@ -1204,50 +1204,51 @@ class ProfileGenerator(object):
                 filtered_rows = self.__filterCloctime(rows, 3)
                 interpolated_time, interpolated_temps = self.__interpolateGPR(np.array(filtered_rows))
 
-                raw_time = [row[0] for row in rows if row[1] is not None]
-                raw_temp = [row[1] for row in rows if row[1] is not None]
-                raw_max_temp = max(raw_temp)
-                raw_min_temp = min(raw_temp)
-                raw_mean_temp = statistics.mean(raw_temp)
-                raw_std_temp = statistics.stdev(raw_temp)
+                if 0 not in interpolated_temps:
+                    raw_time = [row[0] for row in rows if row[1] is not None]
+                    raw_temp = [row[1] for row in rows if row[1] is not None]
+                    raw_max_temp = max(raw_temp)
+                    raw_min_temp = min(raw_temp)
+                    raw_mean_temp = statistics.mean(raw_temp)
+                    raw_std_temp = statistics.stdev(raw_temp)
 
-                max_temp = max(interpolated_temps)
-                min_temp = min(interpolated_temps)
-                mean_temp = statistics.mean(interpolated_temps)
-                std_tmp = statistics.stdev(interpolated_temps)
+                    max_temp = max(interpolated_temps)
+                    min_temp = min(interpolated_temps)
+                    mean_temp = statistics.mean(interpolated_temps)
+                    std_tmp = statistics.stdev(interpolated_temps)
 
-                profile_dict = {
-                    "name": table,
-                    "boundaries": {
-                        "lat": [region[0], region[1]],
-                        "lon": [region[2], region[3]]
-                    },
-                    "raw_data": {
-                        "time": raw_time,
-                        "temps": raw_temp,
-                        "statistics": {
-                            "max_temp": raw_max_temp,
-                            "min_temp": raw_min_temp,
-                            "mean_temp": raw_mean_temp,
-                            "std_temp": raw_std_temp
-                        }
-                    },
-                    "interpolated_data": {
-                        "time": interpolated_time,
-                        "temps": interpolated_temps,
-                        "statistics": {
-                            "max_temp": max_temp,
-                            "min_temp": min_temp,
-                            "mean_temp": mean_temp,
-                            "std_temp": std_tmp
+                    profile_dict = {
+                        "name": table,
+                        "boundaries": {
+                            "lat": [region[0], region[1]],
+                            "lon": [region[2], region[3]]
+                        },
+                        "raw_data": {
+                            "time": raw_time,
+                            "temps": raw_temp,
+                            "statistics": {
+                                "max_temp": raw_max_temp,
+                                "min_temp": raw_min_temp,
+                                "mean_temp": raw_mean_temp,
+                                "std_temp": raw_std_temp
+                            }
+                        },
+                        "interpolated_data": {
+                            "time": interpolated_time,
+                            "temps": interpolated_temps,
+                            "statistics": {
+                                "max_temp": max_temp,
+                                "min_temp": min_temp,
+                                "mean_temp": mean_temp,
+                                "std_temp": std_tmp
+                            }
                         }
                     }
-                }
 
-                with open(json_path, 'w') as f:
-                    json.dump(profile_dict, f, indent=4)
-                
-                num_new_profiles += 1
+                    with open(json_path, 'w') as f:
+                        json.dump(profile_dict, f, indent=4)
+                    
+                    num_new_profiles += 1
 
         logging.info(f"[{table}] Finished ({num_new_profiles} Profiles created, {num_existing_profiles} already existed)")
 
@@ -1261,8 +1262,7 @@ class ProfileGenerator(object):
         aoi_db_path = os.path.join(self.__aoiDir, "aoi.db")
 
         # Get list of tables in AOI database
-        #table_list = self.dbt.getTableList(aoi_db_path)
-        table_list = ["BANDFIELD_CRATER", "UNNAMED_CRATER_7"] # debug
+        table_list = self.dbt.getTableList(aoi_db_path)
         
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.__maxWorkers) as executor:
 
