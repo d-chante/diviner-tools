@@ -28,4 +28,4 @@ max_workers: 30
 aoi_directory: "/speed-scratch/d_chante/diviner_data/data/aoi"
 
 # Pathway to profiles directory
-profiles_directory: "/speed-scratch/d_chante/diviner_data/data/profiles"
+profiles_directory: "/speed-scratch/d_chante/diviner_data/data/profiles_v2"

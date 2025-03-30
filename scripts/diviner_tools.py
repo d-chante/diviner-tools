@@ -17,11 +17,14 @@ from itertools import chain
 import json
 import logging
 import math
+import matplotlib.pyplot as plt
 import numpy as np
 import os
+from pathlib import Path
 from public import public
 import requests
 import re
+import statistics
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern
 from sklearn.exceptions import ConvergenceWarning
@@ -34,6 +37,9 @@ from urllib.parse import urljoin
 import warnings
 import yaml
 from zipfile import ZipFile, BadZipFile
+
+warnings.filterwarnings("ignore")
+logging.getLogger('matplotlib').setLevel(logging.ERROR)
 
 LUNAR_RADIUS_M = 1737400.0
 KM_TO_M = 1000.0
@@ -1125,23 +1131,38 @@ class ProfileGenerator(object):
         '''
         warnings.filterwarnings("ignore", category=ConvergenceWarning)
 
-        X = data[:, 0].reshape(-1, 1)
-        y = data[:, 1]  # TB
-
+        X = data[:, 0].reshape(-1, 1)  # Time
+        y = data[:, 1]  # Temperature (TB)
+        
+        # Enforce that the first and last temps are the same
+        start_time, end_time = 0, 24
+        start_temp, end_temp = y[0], y[-1]
+        mean_temp = (start_temp + end_temp) / 2  
+        
+        X_augmented = np.vstack(([start_time], X, [end_time]))
+        y_augmented = np.hstack(([mean_temp], y, [mean_temp]))
+        
+        # Define the GPR kernel
         kernel = 10.0 * Matern(length_scale=6.0, nu=1.5)
-
+        
+        # Fit GPR model
         gp = GaussianProcessRegressor(
-            kernel=kernel, alpha=10.0, n_restarts_optimizer=10)
-        gp.fit(X, y)
-
+            kernel=kernel, alpha=100.0, n_restarts_optimizer=10)
+        gp.fit(X_augmented, y_augmented)
+        
+        # Predict over the new grid
         X_new = np.linspace(0, 24, 120).reshape(-1, 1)
-        y_pred, sigma = gp.predict(X_new, return_std=True)
-        y_pred_rounded = np.round(y_pred, 3)
-
-        data = np.column_stack(
-            (np.around(X_new.flatten(), 5), y_pred_rounded)).tolist()
-
-        return data
+        y_pred, _ = gp.predict(X_new, return_std=True)
+        
+        # Post-process to ensure the first and last predictions match
+        y_pred[0] = mean_temp
+        y_pred[-1] = mean_temp
+        
+        # Rounding
+        X_new_rounded = np.around(X_new.flatten(), 5).tolist()
+        y_pred_rounded = np.round(y_pred, 3).tolist()
+        
+        return X_new_rounded, y_pred_rounded
 
     def __createProfile(self, database_path, table):
         '''
@@ -1150,6 +1171,9 @@ class ProfileGenerator(object):
         @param table Name of target table
         '''
         logging.info("[{}] Processing ".format(table))
+
+        num_new_profiles = 0
+        num_existing_profiles = 0
 
         # For each AOI, create 200m x 200m sub-regions, sort
         # points by cloctime, filter, interpolate, and
@@ -1162,29 +1186,71 @@ class ProfileGenerator(object):
                 "{}_{}.json".format(
                     table,
                     index))
+            
+            # Check if Profile exists already (useful in cases where 
+            # Profile generation must occur over multiple sessions)
+            if Path(json_path).exists():
+                num_existing_profiles += 1
+            else:
+                query = """
+                    SELECT cloctime, tb
+                    FROM {}
+                    WHERE CLAT BETWEEN {} AND {}
+                    AND CLON BETWEEN {} AND {}
+                    ORDER BY cloctime
+                    """.format(table, region[0], region[1], region[2], region[3])
 
-            query = """
-                SELECT cloctime, tb
-                FROM {}
-                WHERE CLAT BETWEEN {} AND {}
-                AND CLON BETWEEN {} AND {}
-                ORDER BY cloctime
-                """.format(table, region[0], region[1], region[2], region[3])
+                rows = self.dbt.query(database_path, query)
+                filtered_rows = self.__filterCloctime(rows, 3)
+                interpolated_time, interpolated_temps = self.__interpolateGPR(np.array(filtered_rows))
 
-            rows = self.dbt.query(database_path, query)
-            rows = self.__filterCloctime(rows, 4)
-            rows = self.__interpolateGPR(np.array(rows))
+                if 0 not in interpolated_temps:
+                    raw_time = [row[0] for row in rows if row[1] is not None]
+                    raw_temp = [row[1] for row in rows if row[1] is not None]
+                    raw_max_temp = max(raw_temp)
+                    raw_min_temp = min(raw_temp)
+                    raw_mean_temp = statistics.mean(raw_temp)
+                    raw_std_temp = statistics.stdev(raw_temp)
 
-            profile_dict = {
-                "name": table,
-                "boundaries": region,
-                "data": rows
-            }
+                    max_temp = max(interpolated_temps)
+                    min_temp = min(interpolated_temps)
+                    mean_temp = statistics.mean(interpolated_temps)
+                    std_tmp = statistics.stdev(interpolated_temps)
 
-            with open(json_path, 'w') as f:
-                json.dump(profile_dict, f, indent=4)
+                    profile_dict = {
+                        "name": table,
+                        "boundaries": {
+                            "lat": [region[0], region[1]],
+                            "lon": [region[2], region[3]]
+                        },
+                        "raw_data": {
+                            "time": raw_time,
+                            "temps": raw_temp,
+                            "statistics": {
+                                "max_temp": raw_max_temp,
+                                "min_temp": raw_min_temp,
+                                "mean_temp": raw_mean_temp,
+                                "std_temp": raw_std_temp
+                            }
+                        },
+                        "interpolated_data": {
+                            "time": interpolated_time,
+                            "temps": interpolated_temps,
+                            "statistics": {
+                                "max_temp": max_temp,
+                                "min_temp": min_temp,
+                                "mean_temp": mean_temp,
+                                "std_temp": std_tmp
+                            }
+                        }
+                    }
 
-        logging.info("[{}] Finished ".format(table))
+                    with open(json_path, 'w') as f:
+                        json.dump(profile_dict, f, indent=4)
+                    
+                    num_new_profiles += 1
+
+        logging.info(f"[{table}] Finished ({num_new_profiles} Profiles created, {num_existing_profiles} already existed)")
 
     @public
     def generateProfiles(self):
@@ -1211,6 +1277,39 @@ class ProfileGenerator(object):
                        for future in concurrent.futures.as_completed(futures)]
             
         logging.info("Profile generation done")
+
+    @public
+    def PlotRawAndInterpolatedData(self, json_filepath):
+        with open(json_filepath, 'r') as file:
+            data = json.load(file)
+        
+        try:
+            raw_data = data["raw_data"]
+            interpolated_data = data["interpolated_data"]
+            
+            raw_time = raw_data["time"]
+            raw_temps = raw_data["temps"]
+            
+            interp_time = interpolated_data["time"]
+            interp_temps = interpolated_data["temps"]
+            
+        except KeyError as e:
+            print(f"Missing key in JSON data: {e}")
+            return
+        
+        plt.figure(figsize=(12, 6))
+        plt.plot(raw_time, raw_temps, 'o-', label='Raw Data', markersize=6)
+        plt.plot(interp_time, interp_temps, '-', label='Interpolated Data', linewidth=1.5)
+        plt.xlim(0, 24) 
+        plt.ylim(0, 450) 
+        
+        plt.title('Comparison of Raw and Interpolated Data')
+        plt.xlabel('Time (Local Lunar Time)')
+        plt.ylabel('Temperature (K)')
+        plt.legend()
+        
+        plt.grid(True)
+        plt.show()
 
 
 class ZipCrawler(object):
